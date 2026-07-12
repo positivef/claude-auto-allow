@@ -21,6 +21,7 @@ internal sealed class AutoAllowForm : Form
     private readonly Button startButton;
     private readonly Button stopButton;
     private readonly Button clearButton;
+    private readonly ComboBox preferenceComboBox;
     private readonly CheckBox dryRunCheckBox;
     private readonly CheckBox diagnosticCheckBox;
     private readonly Label statusLabel;
@@ -58,12 +59,28 @@ internal sealed class AutoAllowForm : Form
         startButton = new Button { Text = "Start", Width = 92, Height = 30 };
         stopButton = new Button { Text = "Stop", Width = 92, Height = 30, Enabled = false };
         clearButton = new Button { Text = "Clear Log", Width = 92, Height = 30 };
+        var preferenceLabel = new Label
+        {
+            Text = "Prefer:",
+            AutoSize = true,
+            Padding = new Padding(12, 8, 0, 0)
+        };
+        preferenceComboBox = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 112
+        };
+        preferenceComboBox.Items.Add("Always");
+        preferenceComboBox.Items.Add("Once");
+        preferenceComboBox.SelectedIndex = 0;
         dryRunCheckBox = new CheckBox { Text = "Dry run", AutoSize = true, Padding = new Padding(12, 6, 0, 0) };
         diagnosticCheckBox = new CheckBox { Text = "Diagnostic", AutoSize = true, Padding = new Padding(12, 6, 0, 0) };
 
         toolbar.Controls.Add(startButton);
         toolbar.Controls.Add(stopButton);
         toolbar.Controls.Add(clearButton);
+        toolbar.Controls.Add(preferenceLabel);
+        toolbar.Controls.Add(preferenceComboBox);
         toolbar.Controls.Add(dryRunCheckBox);
         toolbar.Controls.Add(diagnosticCheckBox);
 
@@ -116,6 +133,8 @@ internal sealed class AutoAllowForm : Form
         var args = new StringBuilder();
         args.Append("-NoProfile -ExecutionPolicy Bypass -File ");
         args.Append(Quote(scriptPath));
+        args.Append(" -Prefer ");
+        args.Append(preferenceComboBox.SelectedItem == null ? "Always" : preferenceComboBox.SelectedItem.ToString());
         if (dryRunCheckBox.Checked)
         {
             args.Append(" -DryRun");
@@ -199,6 +218,7 @@ internal sealed class AutoAllowForm : Form
     {
         startButton.Enabled = !running;
         stopButton.Enabled = running;
+        preferenceComboBox.Enabled = !running;
         dryRunCheckBox.Enabled = !running;
         diagnosticCheckBox.Enabled = !running;
         statusLabel.Text = running ? "Running" : "Stopped";

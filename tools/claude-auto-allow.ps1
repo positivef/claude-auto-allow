@@ -2,6 +2,8 @@ param(
     [string[]]$ButtonText,
     [string]$WindowTitleRegex = '',
     [string]$ProcessNameRegex = '(?i)^claude$',
+    [ValidateSet('Always', 'Once')]
+    [string]$Prefer = 'Always',
     [int]$IntervalMilliseconds = 120,
     [int]$MaxSeconds = 0,
     [switch]$Once,
@@ -323,18 +325,32 @@ function Get-AllowedButtonPriority {
         [string]$ElementName,
         [hashtable]$AllowedNames,
         [hashtable]$AlwaysNames,
-        [hashtable]$OnceNames
+        [hashtable]$OnceNames,
+        [string]$Prefer
     )
 
     if (-not (Test-AllowedButtonName -ElementName $ElementName -AllowedNames $AllowedNames)) {
         return $null
     }
 
-    if (Test-AllowedButtonName -ElementName $ElementName -AllowedNames $AlwaysNames) {
+    $isAlways = Test-AllowedButtonName -ElementName $ElementName -AllowedNames $AlwaysNames
+    $isOnce = Test-AllowedButtonName -ElementName $ElementName -AllowedNames $OnceNames
+
+    if ($Prefer -eq 'Once') {
+        if ($isOnce) {
+            return 0
+        }
+
+        if ($isAlways) {
+            return 1
+        }
+    }
+
+    if ($isAlways) {
         return 0
     }
 
-    if (Test-AllowedButtonName -ElementName $ElementName -AllowedNames $OnceNames) {
+    if ($isOnce) {
         return 1
     }
 
@@ -347,6 +363,7 @@ function Get-AllowedButtonCandidates {
         [hashtable]$AllowedNames,
         [hashtable]$AlwaysNames,
         [hashtable]$OnceNames,
+        [string]$Prefer,
         [switch]$Diagnostic
     )
 
@@ -358,7 +375,7 @@ function Get-AllowedButtonCandidates {
             Write-ToolLog "Seen '$($element.Current.Name)' type='$($element.Current.ControlType.ProgrammaticName)' rect='$rect'"
         }
 
-        $priority = Get-AllowedButtonPriority -ElementName $elementName -AllowedNames $AllowedNames -AlwaysNames $AlwaysNames -OnceNames $OnceNames
+        $priority = Get-AllowedButtonPriority -ElementName $elementName -AllowedNames $AllowedNames -AlwaysNames $AlwaysNames -OnceNames $OnceNames -Prefer $Prefer
         if ($null -eq $priority) {
             continue
         }
@@ -561,6 +578,7 @@ $recentClicks = @{}
 $startedAt = Get-Date
 
 Write-ToolLog "Watching for button: $($ButtonText -join ', ')"
+Write-ToolLog "Preference: $Prefer"
 Write-ToolLog "Target title regex: $WindowTitleRegex"
 Write-ToolLog "Target process regex: $ProcessNameRegex"
 if ($DryRun) {
@@ -588,16 +606,16 @@ while ($true) {
     foreach ($target in $targetWindows) {
         $window = $target.Element
         $elements = Get-PointSampledButtonElements -Window $window
-        $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Diagnostic:$Diagnostic
+        $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
 
         if (-not $DisableCoveredFallback -and $candidates.Count -eq 0) {
             $elements = Get-RegionButtonElements -Window $window
-            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Diagnostic:$Diagnostic
+            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
         }
 
         if ($DeepScan -and $candidates.Count -eq 0) {
             $elements = Get-VisibleButtonElements -Window $window
-            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Diagnostic:$Diagnostic
+            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
         }
 
         foreach ($candidate in ($candidates | Sort-Object Priority)) {
