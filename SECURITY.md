@@ -2,9 +2,9 @@
 
 ## Scope
 
-This policy covers Claude Auto Allow and Copilot Auto Allow source code,
-scripts, compiled binaries, documentation, and release artifacts in
-`positivef/claude-auto-allow`.
+This policy covers Claude Auto Allow, Copilot Auto Allow, and Claude CLI Auto
+Mode for macOS source code, scripts, compiled binaries, documentation, and
+release artifacts in `positivef/claude-auto-allow`.
 
 ## Security Posture
 
@@ -20,6 +20,8 @@ risk, so the project uses defensive constraints rather than broad automation:
 - symbolic link / reparse point rejection for the PowerShell engine script
 - dry-run and diagnostic modes
 - provenance and copyright notices in source, binaries, and documentation
+- macOS CLI wrapper use of Claude Code's built-in `--permission-mode auto`
+  instead of global button clicking
 
 These controls reduce common misuse and hijacking risks, but they do not make
 the software unhackable and do not replace user judgment.

@@ -1,0 +1,57 @@
+#!/bin/zsh
+set -euo pipefail
+
+# Claude Code CLI wrapper for macOS.
+# It starts Claude Code in auto permission mode, so routine prompts are accepted
+# while risky actions still require approval.
+
+has_permission_override=false
+for arg in "$@"; do
+  case "$arg" in
+    --dangerously-skip-permissions|--allow-dangerously-skip-permissions|--permission-mode|--permission-mode=*)
+      has_permission_override=true
+      break
+      ;;
+  esac
+done
+
+final_args=()
+if [[ "$has_permission_override" == false ]]; then
+  final_args+=(--permission-mode auto)
+fi
+final_args+=("$@")
+
+resolve_claude() {
+  if [[ -n "${CLAUDE_BIN:-}" && -x "${CLAUDE_BIN:-}" ]]; then
+    print -r -- "$CLAUDE_BIN"
+    return 0
+  fi
+
+  local candidate
+  for candidate in \
+    "$HOME/.npm-global/bin/claude" \
+    "$HOME/.local/bin/claude" \
+    "/opt/homebrew/bin/claude" \
+    "/usr/local/bin/claude"; do
+    if [[ -x "$candidate" ]]; then
+      print -r -- "$candidate"
+      return 0
+    fi
+  done
+
+  candidate="$(command -v claude 2>/dev/null || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    print -r -- "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+claude_bin="$(resolve_claude)" || {
+  print -u2 "Claude Code CLI를 찾을 수 없습니다. 먼저 Mac에 Claude Code를 설치하세요."
+  exit 1
+}
+
+print -P "%F{8}[claude-yes CLI wrapper] ${(q)claude_bin} ${(@q)final_args}%f"
+exec "$claude_bin" "${final_args[@]}"

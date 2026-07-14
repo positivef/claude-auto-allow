@@ -1,7 +1,14 @@
 # Claude Auto Allow
 
-Windows helpers for automatically accepting routine Claude Code / Claude and
-GitHub Copilot permission prompts.
+Helpers for reducing routine Claude Code / Claude and GitHub Copilot permission
+prompts.
+
+There are two different concepts in this repository:
+
+- **CLI wrapper**: starts Claude Code with `--permission-mode auto`. It does not
+  click buttons and only affects new sessions launched through the wrapper.
+- **UI auto-clicker**: watches visible Windows approval dialogs and clicks known
+  approval buttons after safety checks.
 
 ## Ownership And License
 
@@ -20,13 +27,17 @@ See [LICENSE.md](LICENSE.md), [NOTICE.md](NOTICE.md), and [SECURITY.md](SECURITY
 
 ## Files
 
-- `tools/claude-auto-allow-gui.exe`: GUI launcher with Start/Stop buttons and a log panel.
-- `tools/claude-auto-allow.exe`: CLI launcher.
-- `tools/claude-auto-allow.ps1`: UI Automation engine.
-- `tools/claude-auto-allow.README.md`: usage, security model, and ownership details.
-- `tools/copilot-auto-allow.exe`: Copilot CLI launcher.
-- `tools/copilot-auto-allow.ps1`: Copilot UI Automation engine.
-- `tools/copilot-auto-allow.README.md`: Copilot usage, security model, and ownership details.
+- `tools/macos/claude-yes`: macOS Claude Code CLI wrapper.
+- `tools/macos/claude-yes-folder.command`: macOS folder picker launcher for the CLI wrapper.
+- `tools/macos/install-claude-yes.sh`: macOS installer for the CLI wrapper.
+- `tools/macos/README.md`: macOS CLI wrapper usage.
+- `tools/claude-auto-allow-gui.exe`: Windows UI auto-clicker GUI with Start/Stop buttons and a log panel.
+- `tools/claude-auto-allow.exe`: Windows UI auto-clicker console launcher.
+- `tools/claude-auto-allow.ps1`: Windows Claude UI Automation engine.
+- `tools/claude-auto-allow.README.md`: Windows Claude auto-clicker usage, security model, and ownership details.
+- `tools/copilot-auto-allow.exe`: Windows Copilot UI auto-clicker console launcher.
+- `tools/copilot-auto-allow.ps1`: Windows Copilot UI Automation engine.
+- `tools/copilot-auto-allow.README.md`: Windows Copilot auto-clicker usage, security model, and ownership details.
 - `SECURITY.md`: hardening notes and vulnerability reporting guidance.
 
 ## Security Model
@@ -46,6 +57,23 @@ made unhackable. The current build reduces common abuse and hijacking risks by:
 - using `RemoteSigned` PowerShell execution policy instead of `Bypass`
 
 ## Run
+
+macOS CLI wrapper:
+
+```sh
+cd /path/to/project
+tools/macos/claude-yes
+```
+
+macOS folder picker installer:
+
+```sh
+cd tools/macos
+chmod +x claude-yes claude-yes-folder.command install-claude-yes.sh
+./install-claude-yes.sh
+```
+
+Windows Claude UI auto-clicker:
 
 Double-click:
 

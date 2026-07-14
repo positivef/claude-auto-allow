@@ -1,6 +1,7 @@
 # Notice
 
-Claude Auto Allow and Copilot Auto Allow are owned by positivef.
+Claude Auto Allow, Copilot Auto Allow, and Claude CLI Auto Mode for macOS are
+owned by positivef.
 
 Rights holder identifier:
 
@@ -16,6 +17,7 @@ Provenance:
 - Project id: `positivef/claude-auto-allow`
 - Provenance marker: `CAA-POSITIVEF-2026-07`
 - Copilot tool provenance marker: `COPILOT-AA-POSITIVEF-2026-07`
+- macOS CLI wrapper provenance marker: `CLAUDE-CLI-AUTO-POSITIVEF-2026-07`
 - Covered files: source code, PowerShell scripts, compiled binaries,
   documentation, release artifacts, and related project assets in this
   repository.
