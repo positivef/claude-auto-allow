@@ -89,6 +89,39 @@ task_summary() {
   print -r -- "$summary"
 }
 
+normalize_topic_text() {
+  print -r -- "$1" | tr -d '\000-\010\013\014\016-\037\177' | tr '\t\r\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//'
+}
+
+topic_summary() {
+  if [[ -n "${CLAUDE_AUTO_ALLOW_TOPIC:-}" ]]; then
+    local env_topic
+    env_topic="$(normalize_topic_text "$CLAUDE_AUTO_ALLOW_TOPIC")"
+    if (( ${#env_topic} > 72 )); then
+      env_topic="${env_topic[1,69]}..."
+    fi
+    print -r -- "$env_topic"
+    return 0
+  fi
+
+  normalize_topic_text "$(task_summary "$@")"
+}
+
+topic_source() {
+  if [[ -n "${CLAUDE_AUTO_ALLOW_TOPIC:-}" ]]; then
+    print -r -- "CLAUDE_AUTO_ALLOW_TOPIC"
+    return 0
+  fi
+
+  local computed
+  computed="$(task_summary "$@")"
+  if [[ "$computed" == "interactive session" ]]; then
+    print -r -- "default"
+  else
+    print -r -- "command arguments"
+  fi
+}
+
 resolve_claude() {
   if [[ -n "${CLAUDE_BIN:-}" && -x "${CLAUDE_BIN:-}" ]]; then
     print -r -- "$CLAUDE_BIN"
@@ -126,29 +159,33 @@ project_name="${PWD:t}"
 if [[ -z "$project_name" ]]; then
   project_name="$project_path"
 fi
-task="$(task_summary "$@")"
-mode_label="AUTO COMMAND ACCEPT"
+topic="$(topic_summary "$@")"
+topic_src="$(topic_source "$@")"
+short_mode_label="AUTO"
 mode_text="CLI policy Auto; --permission-mode auto injected"
 if [[ "$has_permission_override" == true ]]; then
-  mode_label="PERMISSION OVERRIDE"
+  short_mode_label="OVERRIDE"
   mode_text="permission override supplied by user"
 elif [[ "$cli_permission_mode" == "Manual" ]]; then
-  mode_label="MANUAL COMMAND APPROVAL"
+  short_mode_label="MANUAL"
   mode_text="CLI policy Manual; no --permission-mode injected"
 fi
 
-print -Pn "\e]0;[CLAUDE CLI WRAPPER][$mode_label] $project_name | $task\a"
+print -Pn "\e]0;Claude CLI | Project=$project_name | Mode=$short_mode_label | Topic=$topic\a"
 
 print "=== CLAUDE CLI AUTO WRAPPER ACTIVE ==="
 print "Project : $project_name"
 print "Path    : $project_path"
-print "Task    : $task"
+print "Status  : launching Claude Code under wrapper"
+print "Topic   : $topic"
+print "TopicSrc: $topic_src"
 print "Mode    : $mode_text"
 if [[ -n "$policy_file" ]]; then
   print "Policy  : $policy_file"
 else
   print "Policy  : not found; default CLI Auto"
 fi
+print "Title   : Project + Mode + Topic are shown in the terminal title bar"
 print "Owner   : positivef"
 print "Marker  : $PROVENANCE"
 print

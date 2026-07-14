@@ -123,24 +123,41 @@ clear that the wrapper is active.
 Windows title example:
 
 ```text
-[CLAUDE CLI WRAPPER][AUTO COMMAND ACCEPT] Playground | fix build error
+Claude CLI | Project=Playground | Mode=AUTO | Topic=fix build error
 ```
 
 macOS title example:
 
 ```text
-[CLAUDE CLI WRAPPER][AUTO COMMAND ACCEPT] my-project | interactive session
+Claude CLI | Project=my-project | Mode=MANUAL | Topic=interactive session
 ```
 
 The banner includes:
 
 - project folder name
 - full project path
-- task summary, or `interactive session`
+- status, currently `launching Claude Code under wrapper`
+- topic, from command arguments or `interactive session`
+- topic source, either `command arguments`, `CLAUDE_AUTO_ALLOW_TOPIC`, or `default`
 - whether the CLI policy is `Auto` or `Manual`
 - whether `--permission-mode auto` was injected
 - policy file path, if found
 - provenance marker
+
+For interactive sessions where there is no initial prompt argument, set a custom
+window topic before launching:
+
+```bat
+set CLAUDE_AUTO_ALLOW_TOPIC=payment API refactor
+tools\windows-claude-cli-auto-wrapper.exe
+```
+
+```sh
+CLAUDE_AUTO_ALLOW_TOPIC="payment API refactor" tools/macos/macos-claude-cli-auto-wrapper
+```
+
+The wrapper can show the launch topic and wrapper mode, but it cannot read
+Claude Code's live internal progress after Claude has started.
 
 ## Security Model
 

@@ -13,8 +13,8 @@ using System.Text.RegularExpressions;
 [assembly: AssemblyProduct("Windows Claude CLI Auto Wrapper")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CLAUDE-CLI-AUTO-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 internal static class Program
 {
@@ -39,9 +39,9 @@ internal static class Program
 
             string projectPath = Environment.CurrentDirectory;
             string projectName = new DirectoryInfo(projectPath).Name;
-            string taskSummary = GetTaskSummary(claudeArgs);
-            SetConsoleTitle(projectName, taskSummary, hasPermissionOverride, policy.CliPermissionMode);
-            WriteBanner(projectName, projectPath, taskSummary, hasPermissionOverride, policy);
+            TopicInfo topic = GetTopicInfo(claudeArgs);
+            SetConsoleTitle(projectName, topic.Text, hasPermissionOverride, policy.CliPermissionMode);
+            WriteBanner(projectName, projectPath, topic, hasPermissionOverride, policy);
 
             string claudePath = ResolveClaudeExecutable();
             WriteLaunchLine(claudePath, finalArgs);
@@ -146,7 +146,24 @@ internal static class Program
         return Regex.Unescape(match.Groups["value"].Value);
     }
 
-    private static string GetTaskSummary(IList<string> args)
+    private static TopicInfo GetTopicInfo(IList<string> args)
+    {
+        string envTopic = (Environment.GetEnvironmentVariable("CLAUDE_AUTO_ALLOW_TOPIC") ?? string.Empty).Trim();
+        if (envTopic.Length > 0)
+        {
+            return new TopicInfo(Truncate(NormalizeTopicText(envTopic), 72), "CLAUDE_AUTO_ALLOW_TOPIC");
+        }
+
+        string argTopic = NormalizeTopicText(GetArgumentTopic(args));
+        if (argTopic.Length > 0)
+        {
+            return new TopicInfo(Truncate(argTopic, 72), "command arguments");
+        }
+
+        return new TopicInfo("interactive session", "default");
+    }
+
+    private static string GetArgumentTopic(IList<string> args)
     {
         var summaryParts = new List<string>();
         bool skipNext = false;
@@ -178,19 +195,24 @@ internal static class Program
             summaryParts.Add(arg);
         }
 
-        string summary = string.Join(" ", summaryParts.ToArray()).Trim();
-        if (summary.Length == 0)
-        {
-            return "interactive session";
-        }
-
-        return Truncate(summary, 72);
+        return string.Join(" ", summaryParts.ToArray()).Trim();
     }
 
-    private static void SetConsoleTitle(string projectName, string taskSummary, bool hasPermissionOverride, string cliPermissionMode)
+    private static string NormalizeTopicText(string value)
     {
-        string mode = hasPermissionOverride ? "PERMISSION OVERRIDE" : (cliPermissionMode == "Manual" ? "MANUAL COMMAND APPROVAL" : "AUTO COMMAND ACCEPT");
-        string title = "[CLAUDE CLI WRAPPER][" + mode + "] " + projectName + " | " + taskSummary;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        string withoutControlChars = Regex.Replace(value, "[\\x00-\\x1F\\x7F]", " ");
+        return Regex.Replace(withoutControlChars, "\\s+", " ").Trim();
+    }
+
+    private static void SetConsoleTitle(string projectName, string topic, bool hasPermissionOverride, string cliPermissionMode)
+    {
+        string mode = GetShortModeLabel(hasPermissionOverride, cliPermissionMode);
+        string title = "Claude CLI | Project=" + projectName + " | Mode=" + mode + " | Topic=" + topic;
 
         try
         {
@@ -201,7 +223,7 @@ internal static class Program
         }
     }
 
-    private static void WriteBanner(string projectName, string projectPath, string taskSummary, bool hasPermissionOverride, CliPolicy policy)
+    private static void WriteBanner(string projectName, string projectPath, TopicInfo topic, bool hasPermissionOverride, CliPolicy policy)
     {
         ConsoleColor previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -209,12 +231,30 @@ internal static class Program
         Console.ForegroundColor = previousColor;
         Console.WriteLine("Project : " + projectName);
         Console.WriteLine("Path    : " + projectPath);
-        Console.WriteLine("Task    : " + taskSummary);
+        Console.WriteLine("Status  : launching Claude Code under wrapper");
+        Console.WriteLine("Topic   : " + topic.Text);
+        Console.WriteLine("TopicSrc: " + topic.Source);
         Console.WriteLine("Mode    : " + GetModeText(hasPermissionOverride, policy.CliPermissionMode));
         Console.WriteLine("Policy  : " + (string.IsNullOrEmpty(policy.PolicyPath) ? "not found; default CLI Auto" : policy.PolicyPath));
+        Console.WriteLine("Title   : Project + Mode + Topic are shown in the terminal title bar");
         Console.WriteLine("Owner   : positivef");
         Console.WriteLine("Marker  : " + Provenance);
         Console.WriteLine();
+    }
+
+    private static string GetShortModeLabel(bool hasPermissionOverride, string cliPermissionMode)
+    {
+        if (hasPermissionOverride)
+        {
+            return "OVERRIDE";
+        }
+
+        if (cliPermissionMode == "Manual")
+        {
+            return "MANUAL";
+        }
+
+        return "AUTO";
     }
 
     private static string GetModeText(bool hasPermissionOverride, string cliPermissionMode)
@@ -398,5 +438,17 @@ internal static class Program
 
         public string CliPermissionMode { get; private set; }
         public string PolicyPath { get; private set; }
+    }
+
+    private sealed class TopicInfo
+    {
+        public TopicInfo(string text, string source)
+        {
+            Text = text;
+            Source = source;
+        }
+
+        public string Text { get; private set; }
+        public string Source { get; private set; }
     }
 }

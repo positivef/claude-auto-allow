@@ -31,18 +31,29 @@ You can also point to a policy file with `CLAUDE_AUTO_ALLOW_POLICY_FILE`.
 When the wrapper starts, it sets the terminal title to:
 
 ```text
-[CLAUDE CLI WRAPPER][AUTO COMMAND ACCEPT] project-name | task-summary
+Claude CLI | Project=project-name | Mode=AUTO | Topic=task-summary
 ```
 
 It also prints:
 
 - project name
 - project path
-- current task summary, or `interactive session`
+- status, currently `launching Claude Code under wrapper`
+- topic, from command arguments or `interactive session`
+- topic source, either `command arguments`, `CLAUDE_AUTO_ALLOW_TOPIC`, or `default`
 - whether CLI policy is `Auto` or `Manual`
 - whether `--permission-mode auto` was injected
 - policy file path, if found
 - provenance marker
+
+For an interactive session with no initial prompt, set a title topic first:
+
+```sh
+CLAUDE_AUTO_ALLOW_TOPIC="payment API refactor" macos-claude-cli-auto-wrapper
+```
+
+The wrapper cannot read Claude Code's live internal progress after Claude has
+started, so the title topic is a launch-time label.
 
 ## Install
 
