@@ -2,6 +2,12 @@
 
 Windows에서 Claude/Code 계열 팝업에 `Always allow`, `항상 허용`, `Allow once`, `한 번만 허용` 버튼이 보이면 자동으로 누르는 로컬 도구입니다. 기본 실행 파일은 `claude-auto-allow.exe`입니다. 이 exe는 같은 폴더의 `claude-auto-allow.ps1`을 호출하므로 두 파일을 같이 두세요.
 
+## 소유권
+
+Copyright (c) 2026 positivef. All rights reserved.
+
+이 저장소는 공개 열람용이며 오픈소스가 아닙니다. 복제, 수정, 재배포, 재패키징, 판매, 파생 제품 제작, AI 학습/자동 추출, 본인 창작물처럼 표시하는 행위는 사전 서면 허가 없이 허용되지 않습니다.
+
 ## 실행
 
 ```bat

@@ -33,6 +33,10 @@ public static class ClaudeAutoAllowNative
 }
 "@
 
+$ToolOwner = 'positivef'
+$ToolRepository = 'https://github.com/positivef/claude-auto-allow'
+$ToolProvenance = 'CAA-POSITIVEF-2026-07'
+
 function New-TextFromCodePoints {
     param([int[]]$CodePoints)
 
@@ -578,6 +582,9 @@ $recentClicks = @{}
 $startedAt = Get-Date
 
 Write-ToolLog "Watching for button: $($ButtonText -join ', ')"
+Write-ToolLog "Owner: $ToolOwner"
+Write-ToolLog "Repository: $ToolRepository"
+Write-ToolLog "Provenance: $ToolProvenance"
 Write-ToolLog "Preference: $Prefer"
 Write-ToolLog "Target title regex: $WindowTitleRegex"
 Write-ToolLog "Target process regex: $ProcessNameRegex"

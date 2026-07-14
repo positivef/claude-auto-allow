@@ -2,6 +2,16 @@
 
 Windows helper for automatically accepting Claude Desktop permission prompts.
 
+## Ownership And License
+
+Copyright (c) 2026 positivef. All rights reserved.
+
+This repository is public for inspection, but it is not open source. No
+permission is granted to copy, modify, redistribute, repackage, sell, publish,
+train AI systems on, or present this work as someone else's original work.
+
+See [LICENSE.md](LICENSE.md) and [NOTICE.md](NOTICE.md).
+
 ## Files
 
 - `tools/claude-auto-allow-gui.exe`: GUI launcher with Start/Stop buttons and a log panel.

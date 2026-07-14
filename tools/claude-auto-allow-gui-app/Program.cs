@@ -2,8 +2,18 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
+
+[assembly: AssemblyTitle("Claude Auto Allow GUI")]
+[assembly: AssemblyDescription("GUI launcher for Claude Auto Allow. Provenance: CAA-POSITIVEF-2026-07.")]
+[assembly: AssemblyCompany("positivef")]
+[assembly: AssemblyProduct("Claude Auto Allow")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
+[assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 internal static class Program
 {
@@ -18,6 +28,8 @@ internal static class Program
 
 internal sealed class AutoAllowForm : Form
 {
+    private const string Provenance = "CAA-POSITIVEF-2026-07";
+
     private readonly Button startButton;
     private readonly Button stopButton;
     private readonly Button clearButton;
@@ -30,7 +42,7 @@ internal sealed class AutoAllowForm : Form
 
     public AutoAllowForm()
     {
-        Text = "Claude Auto Allow";
+        Text = "Claude Auto Allow - positivef";
         Width = 840;
         Height = 560;
         MinimumSize = new Size(720, 420);
@@ -181,7 +193,7 @@ internal sealed class AutoAllowForm : Form
             worker.BeginOutputReadLine();
             worker.BeginErrorReadLine();
             SetRunningState(true);
-            AppendLog("Started.");
+            AppendLog("Started. Owner=positivef Provenance=" + Provenance);
         }
         catch (Exception ex)
         {
