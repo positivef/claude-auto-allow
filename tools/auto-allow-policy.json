@@ -1,8 +1,9 @@
 {
   "mode": "PolicyAsk",
   "prefer": "Always",
+  "cliPermissionMode": "Auto",
   "dryRun": false,
   "diagnostic": false,
-  "updatedAt": "2026-07-14T00:00:00Z",
+  "updatedAt": "2026-07-15T00:00:00Z",
   "schema": "claude-auto-allow-policy-v1"
 }

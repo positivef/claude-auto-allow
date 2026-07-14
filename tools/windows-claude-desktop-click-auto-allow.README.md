@@ -12,7 +12,8 @@ approval buttons such as `Always allow` or `Allow once` after safety checks.
 - `windows-claude-desktop-click-auto-allow-console.exe`: desktop-click console launcher.
 - `windows-claude-desktop-click-auto-allow.ps1`: Windows UI Automation engine.
 - `windows-claude-desktop-click-auto-allow.cmd`: cmd convenience launcher.
-- `auto-allow-policy.json`: live policy read by the watcher while it runs.
+- `auto-allow-policy.json`: live policy read by the watcher while it runs. It
+  also stores the CLI wrapper `cliPermissionMode`.
 - `windows-auto-allow-policy-control.cmd`: cmd policy changer.
 
 ## Ownership
@@ -49,11 +50,12 @@ This tool cannot make automated approval risk-free, and no tool can be made
 - `RemoteSigned` PowerShell execution policy instead of `Bypass`
 - dry-run and diagnostic modes for verification before use
 
-The default live policy is `PolicyAsk`: routine approval prompts are clicked,
-but prompts containing sensitive terms require a Windows confirmation dialog.
-Use `PolicyBlock` to block those prompts without asking, `AlwaysAllow` to click
-known approval buttons even when sensitive terms are detected, or `Disabled` to
-stop all automatic clicks.
+The default desktop-click live policy is `PolicyAsk`: routine approval prompts
+are clicked, but prompts containing sensitive terms require a Windows
+confirmation dialog. The four desktop modes are mutually exclusive and are shown
+as radio buttons in the GUI. Use `PolicyBlock` to block those prompts without
+asking, `AlwaysAllow` to click known approval buttons even when sensitive terms
+are detected, or `Disabled` to stop all automatic clicks.
 
 The live policy is read from `auto-allow-policy.json` on each scan loop. Change
 it while the watcher is running:
@@ -63,6 +65,8 @@ tools\windows-auto-allow-policy-control.cmd -Mode PolicyAsk
 tools\windows-auto-allow-policy-control.cmd -Mode AlwaysAllow
 tools\windows-auto-allow-policy-control.cmd -Mode PolicyBlock
 tools\windows-auto-allow-policy-control.cmd -Mode Disabled
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Auto
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Manual
 ```
 
 The older command-line override still works for a trusted run:

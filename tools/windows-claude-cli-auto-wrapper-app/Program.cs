@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 [assembly: AssemblyTitle("Windows Claude CLI Auto Wrapper")]
 [assembly: AssemblyDescription("Windows CLI wrapper that starts Claude Code with permission-mode auto. Provenance: CLAUDE-CLI-AUTO-POSITIVEF-2026-07.")]
@@ -12,8 +13,8 @@ using System.Text;
 [assembly: AssemblyProduct("Windows Claude CLI Auto Wrapper")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CLAUDE-CLI-AUTO-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
 
 internal static class Program
 {
@@ -25,9 +26,10 @@ internal static class Program
         {
             var claudeArgs = new List<string>(args);
             bool hasPermissionOverride = HasPermissionOverride(claudeArgs);
+            CliPolicy policy = ReadCliPolicy();
             var finalArgs = new List<string>();
 
-            if (!hasPermissionOverride)
+            if (!hasPermissionOverride && policy.CliPermissionMode == "Auto")
             {
                 finalArgs.Add("--permission-mode");
                 finalArgs.Add("auto");
@@ -38,8 +40,8 @@ internal static class Program
             string projectPath = Environment.CurrentDirectory;
             string projectName = new DirectoryInfo(projectPath).Name;
             string taskSummary = GetTaskSummary(claudeArgs);
-            SetConsoleTitle(projectName, taskSummary, hasPermissionOverride);
-            WriteBanner(projectName, projectPath, taskSummary, hasPermissionOverride);
+            SetConsoleTitle(projectName, taskSummary, hasPermissionOverride, policy.CliPermissionMode);
+            WriteBanner(projectName, projectPath, taskSummary, hasPermissionOverride, policy);
 
             string claudePath = ResolveClaudeExecutable();
             WriteLaunchLine(claudePath, finalArgs);
@@ -89,6 +91,61 @@ internal static class Program
         return false;
     }
 
+    private static CliPolicy ReadCliPolicy()
+    {
+        foreach (string candidate in GetPolicyFileCandidates())
+        {
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(candidate, Encoding.UTF8);
+                string mode = ExtractJsonString(json, "cliPermissionMode", "Auto");
+                if (string.Equals(mode, "Manual", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new CliPolicy("Manual", candidate);
+                }
+
+                if (string.Equals(mode, "Auto", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new CliPolicy("Auto", candidate);
+                }
+            }
+            catch
+            {
+                return new CliPolicy("Auto", candidate);
+            }
+        }
+
+        return new CliPolicy("Auto", string.Empty);
+    }
+
+    private static IEnumerable<string> GetPolicyFileCandidates()
+    {
+        string envPolicyFile = Environment.GetEnvironmentVariable("CLAUDE_AUTO_ALLOW_POLICY_FILE") ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(envPolicyFile))
+        {
+            yield return Path.GetFullPath(envPolicyFile);
+        }
+
+        string baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory);
+        yield return Path.Combine(baseDirectory, "auto-allow-policy.json");
+    }
+
+    private static string ExtractJsonString(string json, string name, string fallback)
+    {
+        var match = Regex.Match(json, "\"" + Regex.Escape(name) + "\"\\s*:\\s*\"(?<value>(?:\\\\.|[^\"])*)\"", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return fallback;
+        }
+
+        return Regex.Unescape(match.Groups["value"].Value);
+    }
+
     private static string GetTaskSummary(IList<string> args)
     {
         var summaryParts = new List<string>();
@@ -130,9 +187,9 @@ internal static class Program
         return Truncate(summary, 72);
     }
 
-    private static void SetConsoleTitle(string projectName, string taskSummary, bool hasPermissionOverride)
+    private static void SetConsoleTitle(string projectName, string taskSummary, bool hasPermissionOverride, string cliPermissionMode)
     {
-        string mode = hasPermissionOverride ? "PERMISSION OVERRIDE" : "AUTO COMMAND ACCEPT";
+        string mode = hasPermissionOverride ? "PERMISSION OVERRIDE" : (cliPermissionMode == "Manual" ? "MANUAL COMMAND APPROVAL" : "AUTO COMMAND ACCEPT");
         string title = "[CLAUDE CLI WRAPPER][" + mode + "] " + projectName + " | " + taskSummary;
 
         try
@@ -144,7 +201,7 @@ internal static class Program
         }
     }
 
-    private static void WriteBanner(string projectName, string projectPath, string taskSummary, bool hasPermissionOverride)
+    private static void WriteBanner(string projectName, string projectPath, string taskSummary, bool hasPermissionOverride, CliPolicy policy)
     {
         ConsoleColor previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -153,10 +210,26 @@ internal static class Program
         Console.WriteLine("Project : " + projectName);
         Console.WriteLine("Path    : " + projectPath);
         Console.WriteLine("Task    : " + taskSummary);
-        Console.WriteLine("Mode    : " + (hasPermissionOverride ? "permission override supplied by user" : "--permission-mode auto injected"));
+        Console.WriteLine("Mode    : " + GetModeText(hasPermissionOverride, policy.CliPermissionMode));
+        Console.WriteLine("Policy  : " + (string.IsNullOrEmpty(policy.PolicyPath) ? "not found; default CLI Auto" : policy.PolicyPath));
         Console.WriteLine("Owner   : positivef");
         Console.WriteLine("Marker  : " + Provenance);
         Console.WriteLine();
+    }
+
+    private static string GetModeText(bool hasPermissionOverride, string cliPermissionMode)
+    {
+        if (hasPermissionOverride)
+        {
+            return "permission override supplied by user";
+        }
+
+        if (cliPermissionMode == "Manual")
+        {
+            return "CLI policy Manual; no --permission-mode injected";
+        }
+
+        return "CLI policy Auto; --permission-mode auto injected";
     }
 
     private static string ResolveClaudeExecutable()
@@ -313,5 +386,17 @@ internal static class Program
         result.Append('\\', backslashes * 2);
         result.Append('"');
         return result.ToString();
+    }
+
+    private sealed class CliPolicy
+    {
+        public CliPolicy(string cliPermissionMode, string policyPath)
+        {
+            CliPermissionMode = cliPermissionMode;
+            PolicyPath = policyPath;
+        }
+
+        public string CliPermissionMode { get; private set; }
+        public string PolicyPath { get; private set; }
     }
 }

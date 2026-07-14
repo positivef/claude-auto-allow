@@ -5,6 +5,34 @@ set -euo pipefail
 # This is a startup wrapper, not a global button clicker.
 
 PROVENANCE="CLAUDE-CLI-AUTO-POSITIVEF-2026-07"
+SCRIPT_DIR="${0:A:h}"
+policy_file=""
+cli_permission_mode="Auto"
+
+policy_candidates=()
+if [[ -n "${CLAUDE_AUTO_ALLOW_POLICY_FILE:-}" ]]; then
+  policy_candidates+=("$CLAUDE_AUTO_ALLOW_POLICY_FILE")
+fi
+policy_candidates+=("$SCRIPT_DIR/auto-allow-policy.json" "$SCRIPT_DIR/../auto-allow-policy.json")
+
+for candidate in "${policy_candidates[@]}"; do
+  if [[ -n "$candidate" && -f "$candidate" ]]; then
+    policy_file="${candidate:A}"
+    break
+  fi
+done
+
+if [[ -n "$policy_file" ]]; then
+  policy_value="$(sed -nE 's/.*"cliPermissionMode"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$policy_file" | head -n 1 | tr -d '\r')"
+  case "$policy_value" in
+    Manual|manual)
+      cli_permission_mode="Manual"
+      ;;
+    Auto|auto|"")
+      cli_permission_mode="Auto"
+      ;;
+  esac
+fi
 
 has_permission_override=false
 for arg in "$@"; do
@@ -17,7 +45,7 @@ for arg in "$@"; do
 done
 
 final_args=()
-if [[ "$has_permission_override" == false ]]; then
+if [[ "$has_permission_override" == false && "$cli_permission_mode" == "Auto" ]]; then
   final_args+=(--permission-mode auto)
 fi
 final_args+=("$@")
@@ -100,10 +128,13 @@ if [[ -z "$project_name" ]]; then
 fi
 task="$(task_summary "$@")"
 mode_label="AUTO COMMAND ACCEPT"
-mode_text="--permission-mode auto injected"
+mode_text="CLI policy Auto; --permission-mode auto injected"
 if [[ "$has_permission_override" == true ]]; then
   mode_label="PERMISSION OVERRIDE"
   mode_text="permission override supplied by user"
+elif [[ "$cli_permission_mode" == "Manual" ]]; then
+  mode_label="MANUAL COMMAND APPROVAL"
+  mode_text="CLI policy Manual; no --permission-mode injected"
 fi
 
 print -Pn "\e]0;[CLAUDE CLI WRAPPER][$mode_label] $project_name | $task\a"
@@ -113,6 +144,11 @@ print "Project : $project_name"
 print "Path    : $project_path"
 print "Task    : $task"
 print "Mode    : $mode_text"
+if [[ -n "$policy_file" ]]; then
+  print "Policy  : $policy_file"
+else
+  print "Policy  : not found; default CLI Auto"
+fi
 print "Owner   : positivef"
 print "Marker  : $PROVENANCE"
 print

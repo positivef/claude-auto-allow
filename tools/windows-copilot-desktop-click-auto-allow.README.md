@@ -11,7 +11,8 @@ approval buttons such as `Allow` after safety checks.
 - `windows-copilot-desktop-click-auto-allow-console.exe`: desktop-click console launcher.
 - `windows-copilot-desktop-click-auto-allow.ps1`: Windows UI Automation engine.
 - `windows-copilot-desktop-click-auto-allow.cmd`: cmd convenience launcher.
-- `auto-allow-policy.json`: live policy read by the watcher while it runs.
+- `auto-allow-policy.json`: live policy read by the watcher while it runs. It
+  also stores the Claude CLI wrapper `cliPermissionMode`.
 - `windows-auto-allow-policy-control.cmd`: cmd policy changer.
 
 ## Ownership
@@ -48,9 +49,10 @@ This tool cannot make automated approval risk-free, and no tool can be made
 - `RemoteSigned` PowerShell execution policy instead of `Bypass`
 - dry-run mode for verification before use
 
-The default live policy is `PolicyAsk`: routine approval prompts are clicked,
-but prompts containing sensitive terms require a Windows confirmation dialog.
-Use `PolicyBlock` to block those prompts without asking, `AlwaysAllow` to click
+The default desktop-click live policy is `PolicyAsk`: routine approval prompts
+are clicked, but prompts containing sensitive terms require a Windows
+confirmation dialog. The four desktop modes are mutually exclusive. Use
+`PolicyBlock` to block those prompts without asking, `AlwaysAllow` to click
 known approval buttons even when sensitive terms are detected, or `Disabled` to
 stop all automatic clicks.
 
@@ -62,6 +64,8 @@ tools\windows-auto-allow-policy-control.cmd -Mode PolicyAsk
 tools\windows-auto-allow-policy-control.cmd -Mode AlwaysAllow
 tools\windows-auto-allow-policy-control.cmd -Mode PolicyBlock
 tools\windows-auto-allow-policy-control.cmd -Mode Disabled
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Auto
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Manual
 ```
 
 The older command-line override still works for a trusted run:

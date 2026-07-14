@@ -13,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Windows Claude Desktop Click Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyFileVersion("1.4.0.0")]
 
 internal static class Program
 {
@@ -34,8 +34,12 @@ internal sealed class AutoAllowForm : Form
     private readonly Button startButton;
     private readonly Button stopButton;
     private readonly Button clearButton;
-    private readonly ComboBox modeComboBox;
+    private readonly RadioButton policyAskRadioButton;
+    private readonly RadioButton policyBlockRadioButton;
+    private readonly RadioButton alwaysAllowRadioButton;
+    private readonly RadioButton disabledRadioButton;
     private readonly ComboBox preferenceComboBox;
+    private readonly CheckBox cliAutoPermissionCheckBox;
     private readonly CheckBox dryRunCheckBox;
     private readonly CheckBox diagnosticCheckBox;
     private readonly Label statusLabel;
@@ -46,9 +50,9 @@ internal sealed class AutoAllowForm : Form
     public AutoAllowForm()
     {
         Text = "Windows Claude Desktop Click Auto Allow - positivef";
-        Width = 1040;
+        Width = 1160;
         Height = 560;
-        MinimumSize = new Size(900, 420);
+        MinimumSize = new Size(980, 440);
         StartPosition = FormStartPosition.CenterScreen;
 
         var root = new TableLayoutPanel
@@ -58,7 +62,7 @@ internal sealed class AutoAllowForm : Form
             RowCount = 3,
             Padding = new Padding(12)
         };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         Controls.Add(root);
@@ -67,7 +71,7 @@ internal sealed class AutoAllowForm : Form
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false
+            WrapContents = true
         };
         root.Controls.Add(toolbar, 0, 0);
 
@@ -76,20 +80,14 @@ internal sealed class AutoAllowForm : Form
         clearButton = new Button { Text = "Clear Log", Width = 92, Height = 30 };
         var modeLabel = new Label
         {
-            Text = "Mode:",
+            Text = "Desktop:",
             AutoSize = true,
             Padding = new Padding(12, 8, 0, 0)
         };
-        modeComboBox = new ComboBox
-        {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 124
-        };
-        modeComboBox.Items.Add("PolicyAsk");
-        modeComboBox.Items.Add("PolicyBlock");
-        modeComboBox.Items.Add("AlwaysAllow");
-        modeComboBox.Items.Add("Disabled");
-        modeComboBox.SelectedIndex = 0;
+        policyAskRadioButton = new RadioButton { Text = "Ask", AutoSize = true, Checked = true, Padding = new Padding(0, 6, 0, 0) };
+        policyBlockRadioButton = new RadioButton { Text = "Block", AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
+        alwaysAllowRadioButton = new RadioButton { Text = "Always", AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
+        disabledRadioButton = new RadioButton { Text = "Disabled", AutoSize = true, Padding = new Padding(0, 6, 0, 0) };
         var preferenceLabel = new Label
         {
             Text = "Prefer:",
@@ -104,6 +102,7 @@ internal sealed class AutoAllowForm : Form
         preferenceComboBox.Items.Add("Always");
         preferenceComboBox.Items.Add("Once");
         preferenceComboBox.SelectedIndex = 0;
+        cliAutoPermissionCheckBox = new CheckBox { Text = "CLI auto mode", AutoSize = true, Checked = true, Padding = new Padding(12, 6, 0, 0) };
         dryRunCheckBox = new CheckBox { Text = "Dry run", AutoSize = true, Padding = new Padding(12, 6, 0, 0) };
         diagnosticCheckBox = new CheckBox { Text = "Diagnostic", AutoSize = true, Padding = new Padding(12, 6, 0, 0) };
 
@@ -111,9 +110,13 @@ internal sealed class AutoAllowForm : Form
         toolbar.Controls.Add(stopButton);
         toolbar.Controls.Add(clearButton);
         toolbar.Controls.Add(modeLabel);
-        toolbar.Controls.Add(modeComboBox);
+        toolbar.Controls.Add(policyAskRadioButton);
+        toolbar.Controls.Add(policyBlockRadioButton);
+        toolbar.Controls.Add(alwaysAllowRadioButton);
+        toolbar.Controls.Add(disabledRadioButton);
         toolbar.Controls.Add(preferenceLabel);
         toolbar.Controls.Add(preferenceComboBox);
+        toolbar.Controls.Add(cliAutoPermissionCheckBox);
         toolbar.Controls.Add(dryRunCheckBox);
         toolbar.Controls.Add(diagnosticCheckBox);
 
@@ -142,8 +145,12 @@ internal sealed class AutoAllowForm : Form
         startButton.Click += delegate { StartWorker(); };
         stopButton.Click += delegate { StopWorker("Stopped by user."); };
         clearButton.Click += delegate { logBox.Clear(); };
-        modeComboBox.SelectedIndexChanged += delegate { SavePolicyFromControls("Policy updated."); };
+        policyAskRadioButton.CheckedChanged += delegate(object sender, EventArgs e) { SavePolicyFromCheckedRadio(sender); };
+        policyBlockRadioButton.CheckedChanged += delegate(object sender, EventArgs e) { SavePolicyFromCheckedRadio(sender); };
+        alwaysAllowRadioButton.CheckedChanged += delegate(object sender, EventArgs e) { SavePolicyFromCheckedRadio(sender); };
+        disabledRadioButton.CheckedChanged += delegate(object sender, EventArgs e) { SavePolicyFromCheckedRadio(sender); };
         preferenceComboBox.SelectedIndexChanged += delegate { SavePolicyFromControls("Policy updated."); };
+        cliAutoPermissionCheckBox.CheckedChanged += delegate { SavePolicyFromControls("Policy updated."); };
         dryRunCheckBox.CheckedChanged += delegate { SavePolicyFromControls("Policy updated."); };
         diagnosticCheckBox.CheckedChanged += delegate { SavePolicyFromControls("Policy updated."); };
         FormClosing += delegate { StopWorker(null); };
@@ -259,24 +266,27 @@ internal sealed class AutoAllowForm : Form
             string policyPath = GetPolicyFilePath();
             if (!File.Exists(policyPath))
             {
-                SelectComboBoxValue(modeComboBox, "PolicyAsk");
+                SelectModeValue("PolicyAsk");
                 SelectComboBoxValue(preferenceComboBox, "Always");
+                cliAutoPermissionCheckBox.Checked = true;
                 dryRunCheckBox.Checked = false;
                 diagnosticCheckBox.Checked = false;
                 return;
             }
 
             string json = File.ReadAllText(policyPath, Encoding.UTF8);
-            SelectComboBoxValue(modeComboBox, ExtractJsonString(json, "mode", "PolicyAsk"));
+            SelectModeValue(ExtractJsonString(json, "mode", "PolicyAsk"));
             SelectComboBoxValue(preferenceComboBox, ExtractJsonString(json, "prefer", "Always"));
+            cliAutoPermissionCheckBox.Checked = string.Equals(ExtractJsonString(json, "cliPermissionMode", "Auto"), "Auto", StringComparison.OrdinalIgnoreCase);
             dryRunCheckBox.Checked = ExtractJsonBool(json, "dryRun", false);
             diagnosticCheckBox.Checked = ExtractJsonBool(json, "diagnostic", false);
         }
         catch (Exception ex)
         {
             AppendLog("ERROR loading policy: " + ex.Message);
-            SelectComboBoxValue(modeComboBox, "PolicyAsk");
+            SelectModeValue("PolicyAsk");
             SelectComboBoxValue(preferenceComboBox, "Always");
+            cliAutoPermissionCheckBox.Checked = true;
             dryRunCheckBox.Checked = false;
             diagnosticCheckBox.Checked = false;
         }
@@ -296,13 +306,15 @@ internal sealed class AutoAllowForm : Form
         try
         {
             string policyPath = GetPolicyFilePath();
-            string mode = modeComboBox.SelectedItem == null ? "PolicyAsk" : modeComboBox.SelectedItem.ToString();
+            string mode = GetSelectedMode();
             string prefer = preferenceComboBox.SelectedItem == null ? "Always" : preferenceComboBox.SelectedItem.ToString();
+            string cliPermissionMode = cliAutoPermissionCheckBox.Checked ? "Auto" : "Manual";
 
             var json = new StringBuilder();
             json.AppendLine("{");
             json.AppendLine("  \"mode\": \"" + EscapeJson(mode) + "\",");
             json.AppendLine("  \"prefer\": \"" + EscapeJson(prefer) + "\",");
+            json.AppendLine("  \"cliPermissionMode\": \"" + EscapeJson(cliPermissionMode) + "\",");
             json.AppendLine("  \"dryRun\": " + (dryRunCheckBox.Checked ? "true" : "false") + ",");
             json.AppendLine("  \"diagnostic\": " + (diagnosticCheckBox.Checked ? "true" : "false") + ",");
             json.AppendLine("  \"updatedAt\": \"" + DateTime.UtcNow.ToString("o") + "\",");
@@ -314,7 +326,7 @@ internal sealed class AutoAllowForm : Form
             if (!string.IsNullOrEmpty(message))
             {
                 string running = worker != null && !worker.HasExited ? " Applied to running worker." : string.Empty;
-                AppendLog(message + " Mode=" + mode + " Prefer=" + prefer + " DryRun=" + dryRunCheckBox.Checked + " Diagnostic=" + diagnosticCheckBox.Checked + "." + running);
+                AppendLog(message + " DesktopMode=" + mode + " Prefer=" + prefer + " CliPermissionMode=" + cliPermissionMode + " DryRun=" + dryRunCheckBox.Checked + " Diagnostic=" + diagnosticCheckBox.Checked + "." + running);
             }
         }
         catch (Exception ex)
@@ -323,12 +335,25 @@ internal sealed class AutoAllowForm : Form
         }
     }
 
+    private void SavePolicyFromCheckedRadio(object sender)
+    {
+        var radioButton = sender as RadioButton;
+        if (radioButton != null && radioButton.Checked)
+        {
+            SavePolicyFromControls("Policy updated.");
+        }
+    }
+
     private void SetRunningState(bool running)
     {
         startButton.Enabled = !running;
         stopButton.Enabled = running;
-        modeComboBox.Enabled = true;
+        policyAskRadioButton.Enabled = true;
+        policyBlockRadioButton.Enabled = true;
+        alwaysAllowRadioButton.Enabled = true;
+        disabledRadioButton.Enabled = true;
         preferenceComboBox.Enabled = true;
+        cliAutoPermissionCheckBox.Enabled = true;
         dryRunCheckBox.Enabled = true;
         diagnosticCheckBox.Enabled = true;
         statusLabel.Text = running ? "Running" : "Stopped";
@@ -368,6 +393,49 @@ internal sealed class AutoAllowForm : Form
     private static string GetPolicyFilePath()
     {
         return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "auto-allow-policy.json"));
+    }
+
+    private string GetSelectedMode()
+    {
+        if (policyBlockRadioButton.Checked)
+        {
+            return "PolicyBlock";
+        }
+
+        if (alwaysAllowRadioButton.Checked)
+        {
+            return "AlwaysAllow";
+        }
+
+        if (disabledRadioButton.Checked)
+        {
+            return "Disabled";
+        }
+
+        return "PolicyAsk";
+    }
+
+    private void SelectModeValue(string value)
+    {
+        if (string.Equals(value, "PolicyBlock", StringComparison.OrdinalIgnoreCase))
+        {
+            policyBlockRadioButton.Checked = true;
+            return;
+        }
+
+        if (string.Equals(value, "AlwaysAllow", StringComparison.OrdinalIgnoreCase))
+        {
+            alwaysAllowRadioButton.Checked = true;
+            return;
+        }
+
+        if (string.Equals(value, "Disabled", StringComparison.OrdinalIgnoreCase))
+        {
+            disabledRadioButton.Checked = true;
+            return;
+        }
+
+        policyAskRadioButton.Checked = true;
     }
 
     private static void SelectComboBoxValue(ComboBox comboBox, string value)

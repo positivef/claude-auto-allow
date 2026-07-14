@@ -1,6 +1,8 @@
 param(
     [string]$Mode,
     [string]$Prefer,
+    [string]$CliPermissionMode,
+    [string]$CliAuto,
     [string]$DryRun,
     [string]$Diagnostic,
     [string]$PolicyFile = '',
@@ -15,6 +17,7 @@ if ([string]::IsNullOrWhiteSpace($PolicyFile)) {
 
 $validModes = @('AlwaysAllow', 'PolicyAsk', 'PolicyBlock', 'Disabled')
 $validPrefer = @('Always', 'Once')
+$validCliPermissionModes = @('Auto', 'Manual')
 $validSwitch = @('On', 'Off', 'True', 'False', '1', '0', 'Yes', 'No')
 
 function ConvertTo-ControlBool {
@@ -44,6 +47,7 @@ function Get-CurrentPolicy {
     $policy = [ordered]@{
         mode = 'PolicyAsk'
         prefer = 'Always'
+        cliPermissionMode = 'Auto'
         dryRun = $false
         diagnostic = $false
         updatedAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -55,7 +59,7 @@ function Get-CurrentPolicy {
             $json = Get-Content -LiteralPath $PolicyFile -Raw -Encoding UTF8
             if (-not [string]::IsNullOrWhiteSpace($json)) {
                 $existing = $json | ConvertFrom-Json
-                foreach ($name in @('mode', 'prefer', 'dryRun', 'diagnostic', 'schema')) {
+                foreach ($name in @('mode', 'prefer', 'cliPermissionMode', 'dryRun', 'diagnostic', 'schema')) {
                     if ($existing.PSObject.Properties.Name -contains $name) {
                         $policy[$name] = $existing.$name
                     }
@@ -78,6 +82,14 @@ if (-not [string]::IsNullOrWhiteSpace($Prefer) -and $validPrefer -notcontains $P
     throw "Invalid Prefer '$Prefer'. Use one of: $($validPrefer -join ', ')"
 }
 
+if (-not [string]::IsNullOrWhiteSpace($CliPermissionMode) -and $validCliPermissionModes -notcontains $CliPermissionMode) {
+    throw "Invalid CliPermissionMode '$CliPermissionMode'. Use one of: $($validCliPermissionModes -join ', ')"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($CliAuto) -and $validSwitch -notcontains $CliAuto) {
+    throw "Invalid CliAuto '$CliAuto'. Use On or Off."
+}
+
 if (-not [string]::IsNullOrWhiteSpace($DryRun) -and $validSwitch -notcontains $DryRun) {
     throw "Invalid DryRun '$DryRun'. Use On or Off."
 }
@@ -87,12 +99,21 @@ if (-not [string]::IsNullOrWhiteSpace($Diagnostic) -and $validSwitch -notcontain
 }
 
 $policy = Get-CurrentPolicy
+if ($validCliPermissionModes -notcontains $policy.cliPermissionMode) {
+    $policy.cliPermissionMode = 'Auto'
+}
 
 if (-not [string]::IsNullOrWhiteSpace($Mode)) {
     $policy.mode = $Mode
 }
 if (-not [string]::IsNullOrWhiteSpace($Prefer)) {
     $policy.prefer = $Prefer
+}
+if (-not [string]::IsNullOrWhiteSpace($CliPermissionMode)) {
+    $policy.cliPermissionMode = $CliPermissionMode
+}
+if (-not [string]::IsNullOrWhiteSpace($CliAuto)) {
+    $policy.cliPermissionMode = if (ConvertTo-ControlBool -Value $CliAuto -Current $true) { 'Auto' } else { 'Manual' }
 }
 $currentDryRun = ConvertTo-ControlBool -Value "$($policy.dryRun)" -Current $false
 $currentDiagnostic = ConvertTo-ControlBool -Value "$($policy.diagnostic)" -Current $false
@@ -112,6 +133,7 @@ Set-Content -LiteralPath $PolicyFile -Value $jsonOut -Encoding UTF8
 Write-Host "Policy file: $PolicyFile"
 Write-Host "Mode       : $($policy.mode)"
 Write-Host "Prefer     : $($policy.prefer)"
+Write-Host "CLI mode   : $($policy.cliPermissionMode)"
 Write-Host "Dry run    : $($policy.dryRun)"
 Write-Host "Diagnostic : $($policy.diagnostic)"
 

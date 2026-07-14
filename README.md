@@ -40,11 +40,13 @@ approval buttons.
 
 ## Live Approval Policy
 
-Windows desktop-click tools read `tools/auto-allow-policy.json` while they are
-running. Changing this file through the GUI or policy control command is applied
-on the next scan loop without restarting the watcher.
+`tools/auto-allow-policy.json` stores two separate settings:
 
-Policy modes:
+- desktop-click auto-allow behavior for visible Windows approval prompts
+- CLI wrapper behavior for new Claude Code sessions
+
+Desktop-click modes are mutually exclusive. In the GUI they are shown as radio
+buttons:
 
 - `PolicyAsk`: auto-click routine approval prompts, but ask before approving
   prompts that contain sensitive terms such as secrets, production, deployment,
@@ -56,6 +58,21 @@ Policy modes:
   label checks.
 - `Disabled`: do not click anything.
 
+Windows desktop-click tools read this policy while they are running. Changing it
+through the GUI or policy control command is applied on the next scan loop
+without restarting the watcher.
+
+CLI wrapper mode is binary:
+
+- `Auto`: inject `--permission-mode auto` when launching a new Claude Code
+  session, unless the user supplied a permission option manually.
+- `Manual`: do not inject a permission option; Claude Code asks according to its
+  own defaults.
+
+CLI wrapper mode is used only when starting a new wrapper session. A running
+Claude Code CLI process cannot have its internal `--permission-mode` changed by
+this tool after launch.
+
 Live policy commands:
 
 ```bat
@@ -64,14 +81,13 @@ tools\windows-auto-allow-policy-control.cmd -Mode AlwaysAllow
 tools\windows-auto-allow-policy-control.cmd -Mode PolicyBlock
 tools\windows-auto-allow-policy-control.cmd -Mode Disabled
 tools\windows-auto-allow-policy-control.cmd -Prefer Once
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Auto
+tools\windows-auto-allow-policy-control.cmd -CliPermissionMode Manual
+tools\windows-auto-allow-policy-control.cmd -CliAuto On
+tools\windows-auto-allow-policy-control.cmd -CliAuto Off
 tools\windows-auto-allow-policy-control.cmd -DryRun On
 tools\windows-auto-allow-policy-control.cmd -DryRun Off
 ```
-
-The Claude CLI wrappers still use Claude Code startup options. A running Claude
-Code CLI process cannot have its internal `--permission-mode` changed by this
-tool after launch; the live policy controls the separate Windows desktop-click
-watchers.
 
 ## Files
 
@@ -87,7 +103,7 @@ CLI wrappers:
 
 Windows desktop-click tools:
 
-- `tools/auto-allow-policy.json`: live policy shared by Windows desktop-click tools.
+- `tools/auto-allow-policy.json`: live policy shared by Windows desktop-click tools and CLI wrappers.
 - `tools/windows-auto-allow-policy-control.cmd`: Windows cmd policy changer.
 - `tools/windows-auto-allow-policy-control.ps1`: Windows PowerShell policy changer.
 - `tools/windows-claude-desktop-click-auto-allow-gui.exe`: Windows Claude desktop-click GUI.
@@ -121,7 +137,9 @@ The banner includes:
 - project folder name
 - full project path
 - task summary, or `interactive session`
+- whether the CLI policy is `Auto` or `Manual`
 - whether `--permission-mode auto` was injected
+- policy file path, if found
 - provenance marker
 
 ## Security Model
@@ -129,7 +147,8 @@ The banner includes:
 This tool does not make automated approvals risk-free, and no software can be
 made unhackable. The current build reduces common abuse and hijacking risks by:
 
-- using Claude Code's built-in `--permission-mode auto` for CLI wrappers
+- using Claude Code's built-in `--permission-mode auto` for CLI wrappers when
+  CLI policy is `Auto`
 - targeting Claude by process name and executable path for Windows desktop-click mode
 - targeting VS Code / Cursor by process name and executable path for Copilot desktop-click mode
 - rejecting custom target regex unless `-AllowCustomTarget` is explicit

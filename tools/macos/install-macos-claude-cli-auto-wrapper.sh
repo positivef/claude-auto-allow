@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="${0:A:h}"
 WRAPPER_SOURCE="$SCRIPT_DIR/macos-claude-cli-auto-wrapper"
 PICKER_SOURCE="$SCRIPT_DIR/macos-claude-cli-auto-folder-picker.command"
+POLICY_SOURCE="$SCRIPT_DIR/../auto-allow-policy.json"
 
 chmod +x "$WRAPPER_SOURCE"
 chmod +x "$PICKER_SOURCE"
@@ -11,6 +12,10 @@ chmod +x "$PICKER_SOURCE"
 mkdir -p "$HOME/bin"
 cp "$WRAPPER_SOURCE" "$HOME/bin/macos-claude-cli-auto-wrapper"
 chmod +x "$HOME/bin/macos-claude-cli-auto-wrapper"
+
+if [[ -f "$POLICY_SOURCE" ]]; then
+  cp "$POLICY_SOURCE" "$HOME/bin/auto-allow-policy.json"
+fi
 
 ln -sf "$HOME/bin/macos-claude-cli-auto-wrapper" "$HOME/bin/claude-cli-auto"
 

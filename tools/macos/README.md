@@ -2,7 +2,7 @@
 
 This is the macOS CLI wrapper version.
 
-It does not click buttons globally. It starts Claude Code with:
+It does not click buttons globally. By default it starts Claude Code with:
 
 ```sh
 --permission-mode auto
@@ -11,11 +11,20 @@ It does not click buttons globally. It starts Claude Code with:
 Routine local actions are approved by Claude Code's built-in auto mode, while
 risky or important actions should still ask for confirmation.
 
+The wrapper also reads `auto-allow-policy.json` when it can find it in either
+the same folder or the parent `tools` folder. Set `cliPermissionMode` to control
+new CLI sessions:
+
+- `Auto`: inject `--permission-mode auto`.
+- `Manual`: do not inject a permission option; Claude Code asks normally.
+
+You can also point to a policy file with `CLAUDE_AUTO_ALLOW_POLICY_FILE`.
+
 ## Files
 
 - `macos-claude-cli-auto-wrapper`: terminal CLI wrapper. Run this inside a project folder.
 - `macos-claude-cli-auto-folder-picker.command`: double-click launcher that asks for a project folder.
-- `install-macos-claude-cli-auto-wrapper.sh`: installer that copies the wrapper to `~/bin` and creates a Desktop launcher.
+- `install-macos-claude-cli-auto-wrapper.sh`: installer that copies the wrapper and policy file to `~/bin` and creates a Desktop launcher.
 
 ## What You See In The Terminal
 
@@ -30,7 +39,9 @@ It also prints:
 - project name
 - project path
 - current task summary, or `interactive session`
+- whether CLI policy is `Auto` or `Manual`
 - whether `--permission-mode auto` was injected
+- policy file path, if found
 - provenance marker
 
 ## Install
