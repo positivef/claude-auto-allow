@@ -29,12 +29,16 @@ See [LICENSE.md](LICENSE.md), [NOTICE.md](NOTICE.md), and [SECURITY.md](SECURITY
 
 File names intentionally include the operating system and behavior:
 
-- `windows-claude-cli-auto-wrapper.exe`: Windows CLI wrapper. Starts a new Claude Code session with `--permission-mode auto`.
+- `windows-claude-cli-auto-wrapper.exe`: Windows CLI wrapper. Starts a new Claude Code session in the current terminal folder.
+- `windows-claude-cli-auto-folder-picker.exe`: Windows click launcher. Asks for a project folder, then starts the CLI wrapper there.
 - `macos-claude-cli-auto-wrapper`: macOS CLI wrapper. Starts a new Claude Code session with `--permission-mode auto`.
 - `windows-claude-desktop-click-auto-allow-*`: Windows desktop-click tool for visible Claude approval prompts.
 - `windows-copilot-desktop-click-auto-allow-*`: Windows desktop-click tool for visible Copilot approval prompts.
 
-If the file name says `cli-auto-wrapper`, it launches Claude Code.
+If the file name says `cli-auto-wrapper`, it launches Claude Code in the current
+working folder.
+If the file name says `cli-auto-folder-picker`, it opens a folder picker first,
+then launches the CLI wrapper in the selected project folder.
 If the file name says `desktop-click-auto-allow`, it watches and clicks visible
 approval buttons.
 
@@ -96,6 +100,9 @@ CLI wrappers:
 - `tools/windows-claude-cli-auto-wrapper.exe`: Windows Claude Code CLI wrapper.
 - `tools/windows-claude-cli-auto-wrapper.cmd`: Windows cmd convenience launcher.
 - `tools/windows-claude-cli-auto-wrapper-app/Program.cs`: Windows CLI wrapper source.
+- `tools/windows-claude-cli-auto-folder-picker.exe`: Windows folder picker launcher for the CLI wrapper.
+- `tools/windows-claude-cli-auto-folder-picker.cmd`: Windows cmd convenience launcher for the folder picker.
+- `tools/windows-claude-cli-auto-folder-picker-app/Program.cs`: Windows folder picker source.
 - `tools/macos/macos-claude-cli-auto-wrapper`: macOS Claude Code CLI wrapper.
 - `tools/macos/macos-claude-cli-auto-folder-picker.command`: macOS folder picker launcher for the CLI wrapper.
 - `tools/macos/install-macos-claude-cli-auto-wrapper.sh`: macOS installer for the CLI wrapper.
@@ -185,6 +192,16 @@ Windows CLI wrapper:
 cd /d C:\path\to\project
 tools\windows-claude-cli-auto-wrapper.exe "fix build error"
 ```
+
+Windows CLI folder picker:
+
+```bat
+tools\windows-claude-cli-auto-folder-picker.exe
+```
+
+Double-click `tools\windows-claude-cli-auto-folder-picker.exe` when you want a
+Windows folder picker with an address bar. After you choose a project folder, it
+opens `cmd.exe` in that folder and runs `windows-claude-cli-auto-wrapper.exe`.
 
 macOS CLI wrapper:
 
