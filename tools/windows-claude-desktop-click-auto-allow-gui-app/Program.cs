@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Windows Claude Desktop Click Auto Allow GUI")]
@@ -12,8 +13,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Windows Claude Desktop Click Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 internal static class Program
 {
@@ -33,19 +34,21 @@ internal sealed class AutoAllowForm : Form
     private readonly Button startButton;
     private readonly Button stopButton;
     private readonly Button clearButton;
+    private readonly ComboBox modeComboBox;
     private readonly ComboBox preferenceComboBox;
     private readonly CheckBox dryRunCheckBox;
     private readonly CheckBox diagnosticCheckBox;
     private readonly Label statusLabel;
     private readonly TextBox logBox;
     private Process worker;
+    private bool loadingPolicy;
 
     public AutoAllowForm()
     {
         Text = "Windows Claude Desktop Click Auto Allow - positivef";
-        Width = 840;
+        Width = 1040;
         Height = 560;
-        MinimumSize = new Size(720, 420);
+        MinimumSize = new Size(900, 420);
         StartPosition = FormStartPosition.CenterScreen;
 
         var root = new TableLayoutPanel
@@ -71,6 +74,22 @@ internal sealed class AutoAllowForm : Form
         startButton = new Button { Text = "Start", Width = 92, Height = 30 };
         stopButton = new Button { Text = "Stop", Width = 92, Height = 30, Enabled = false };
         clearButton = new Button { Text = "Clear Log", Width = 92, Height = 30 };
+        var modeLabel = new Label
+        {
+            Text = "Mode:",
+            AutoSize = true,
+            Padding = new Padding(12, 8, 0, 0)
+        };
+        modeComboBox = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 124
+        };
+        modeComboBox.Items.Add("PolicyAsk");
+        modeComboBox.Items.Add("PolicyBlock");
+        modeComboBox.Items.Add("AlwaysAllow");
+        modeComboBox.Items.Add("Disabled");
+        modeComboBox.SelectedIndex = 0;
         var preferenceLabel = new Label
         {
             Text = "Prefer:",
@@ -91,6 +110,8 @@ internal sealed class AutoAllowForm : Form
         toolbar.Controls.Add(startButton);
         toolbar.Controls.Add(stopButton);
         toolbar.Controls.Add(clearButton);
+        toolbar.Controls.Add(modeLabel);
+        toolbar.Controls.Add(modeComboBox);
         toolbar.Controls.Add(preferenceLabel);
         toolbar.Controls.Add(preferenceComboBox);
         toolbar.Controls.Add(dryRunCheckBox);
@@ -121,13 +142,22 @@ internal sealed class AutoAllowForm : Form
         startButton.Click += delegate { StartWorker(); };
         stopButton.Click += delegate { StopWorker("Stopped by user."); };
         clearButton.Click += delegate { logBox.Clear(); };
+        modeComboBox.SelectedIndexChanged += delegate { SavePolicyFromControls("Policy updated."); };
+        preferenceComboBox.SelectedIndexChanged += delegate { SavePolicyFromControls("Policy updated."); };
+        dryRunCheckBox.CheckedChanged += delegate { SavePolicyFromControls("Policy updated."); };
+        diagnosticCheckBox.CheckedChanged += delegate { SavePolicyFromControls("Policy updated."); };
         FormClosing += delegate { StopWorker(null); };
+
+        LoadPolicyIntoControls();
+        SavePolicyFromControls(null);
 
         Shown += delegate { StartWorker(); };
     }
 
     private void StartWorker()
     {
+        SavePolicyFromControls(null);
+
         if (worker != null && !worker.HasExited)
         {
             AppendLog("Already running.");
@@ -148,16 +178,8 @@ internal sealed class AutoAllowForm : Form
         var args = new StringBuilder();
         args.Append("-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File ");
         args.Append(Quote(scriptPath));
-        args.Append(" -Prefer ");
-        args.Append(preferenceComboBox.SelectedItem == null ? "Always" : preferenceComboBox.SelectedItem.ToString());
-        if (dryRunCheckBox.Checked)
-        {
-            args.Append(" -DryRun");
-        }
-        if (diagnosticCheckBox.Checked)
-        {
-            args.Append(" -Diagnostic");
-        }
+        args.Append(" -PolicyFile ");
+        args.Append(Quote(GetPolicyFilePath()));
 
         var startInfo = new ProcessStartInfo
         {
@@ -229,13 +251,86 @@ internal sealed class AutoAllowForm : Form
         }
     }
 
+    private void LoadPolicyIntoControls()
+    {
+        loadingPolicy = true;
+        try
+        {
+            string policyPath = GetPolicyFilePath();
+            if (!File.Exists(policyPath))
+            {
+                SelectComboBoxValue(modeComboBox, "PolicyAsk");
+                SelectComboBoxValue(preferenceComboBox, "Always");
+                dryRunCheckBox.Checked = false;
+                diagnosticCheckBox.Checked = false;
+                return;
+            }
+
+            string json = File.ReadAllText(policyPath, Encoding.UTF8);
+            SelectComboBoxValue(modeComboBox, ExtractJsonString(json, "mode", "PolicyAsk"));
+            SelectComboBoxValue(preferenceComboBox, ExtractJsonString(json, "prefer", "Always"));
+            dryRunCheckBox.Checked = ExtractJsonBool(json, "dryRun", false);
+            diagnosticCheckBox.Checked = ExtractJsonBool(json, "diagnostic", false);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ERROR loading policy: " + ex.Message);
+            SelectComboBoxValue(modeComboBox, "PolicyAsk");
+            SelectComboBoxValue(preferenceComboBox, "Always");
+            dryRunCheckBox.Checked = false;
+            diagnosticCheckBox.Checked = false;
+        }
+        finally
+        {
+            loadingPolicy = false;
+        }
+    }
+
+    private void SavePolicyFromControls(string message)
+    {
+        if (loadingPolicy)
+        {
+            return;
+        }
+
+        try
+        {
+            string policyPath = GetPolicyFilePath();
+            string mode = modeComboBox.SelectedItem == null ? "PolicyAsk" : modeComboBox.SelectedItem.ToString();
+            string prefer = preferenceComboBox.SelectedItem == null ? "Always" : preferenceComboBox.SelectedItem.ToString();
+
+            var json = new StringBuilder();
+            json.AppendLine("{");
+            json.AppendLine("  \"mode\": \"" + EscapeJson(mode) + "\",");
+            json.AppendLine("  \"prefer\": \"" + EscapeJson(prefer) + "\",");
+            json.AppendLine("  \"dryRun\": " + (dryRunCheckBox.Checked ? "true" : "false") + ",");
+            json.AppendLine("  \"diagnostic\": " + (diagnosticCheckBox.Checked ? "true" : "false") + ",");
+            json.AppendLine("  \"updatedAt\": \"" + DateTime.UtcNow.ToString("o") + "\",");
+            json.AppendLine("  \"schema\": \"claude-auto-allow-policy-v1\"");
+            json.AppendLine("}");
+
+            File.WriteAllText(policyPath, json.ToString(), new UTF8Encoding(false));
+
+            if (!string.IsNullOrEmpty(message))
+            {
+                string running = worker != null && !worker.HasExited ? " Applied to running worker." : string.Empty;
+                AppendLog(message + " Mode=" + mode + " Prefer=" + prefer + " DryRun=" + dryRunCheckBox.Checked + " Diagnostic=" + diagnosticCheckBox.Checked + "." + running);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ERROR saving policy: " + ex.Message);
+        }
+    }
+
     private void SetRunningState(bool running)
     {
         startButton.Enabled = !running;
         stopButton.Enabled = running;
-        preferenceComboBox.Enabled = !running;
-        dryRunCheckBox.Enabled = !running;
-        diagnosticCheckBox.Enabled = !running;
+        modeComboBox.Enabled = true;
+        preferenceComboBox.Enabled = true;
+        dryRunCheckBox.Enabled = true;
+        diagnosticCheckBox.Enabled = true;
         statusLabel.Text = running ? "Running" : "Stopped";
         statusLabel.ForeColor = running ? Color.ForestGreen : Color.Firebrick;
     }
@@ -268,6 +363,60 @@ internal sealed class AutoAllowForm : Form
     private static string Quote(string value)
     {
         return "\"" + value.Replace("\"", "\\\"") + "\"";
+    }
+
+    private static string GetPolicyFilePath()
+    {
+        return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "auto-allow-policy.json"));
+    }
+
+    private static void SelectComboBoxValue(ComboBox comboBox, string value)
+    {
+        for (int i = 0; i < comboBox.Items.Count; i++)
+        {
+            if (string.Equals(comboBox.Items[i].ToString(), value, StringComparison.OrdinalIgnoreCase))
+            {
+                comboBox.SelectedIndex = i;
+                return;
+            }
+        }
+
+        if (comboBox.Items.Count > 0)
+        {
+            comboBox.SelectedIndex = 0;
+        }
+    }
+
+    private static string ExtractJsonString(string json, string name, string fallback)
+    {
+        var match = Regex.Match(json, "\"" + Regex.Escape(name) + "\"\\s*:\\s*\"(?<value>(?:\\\\.|[^\"])*)\"");
+        if (!match.Success)
+        {
+            return fallback;
+        }
+
+        return Regex.Unescape(match.Groups["value"].Value);
+    }
+
+    private static bool ExtractJsonBool(string json, string name, bool fallback)
+    {
+        var match = Regex.Match(json, "\"" + Regex.Escape(name) + "\"\\s*:\\s*(?<value>true|false)", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return fallback;
+        }
+
+        return string.Equals(match.Groups["value"].Value, "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string EscapeJson(string value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
     }
 
     private static string ResolveSafeSiblingFile(string fileName)

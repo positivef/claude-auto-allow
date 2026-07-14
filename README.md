@@ -38,6 +38,41 @@ If the file name says `cli-auto-wrapper`, it launches Claude Code.
 If the file name says `desktop-click-auto-allow`, it watches and clicks visible
 approval buttons.
 
+## Live Approval Policy
+
+Windows desktop-click tools read `tools/auto-allow-policy.json` while they are
+running. Changing this file through the GUI or policy control command is applied
+on the next scan loop without restarting the watcher.
+
+Policy modes:
+
+- `PolicyAsk`: auto-click routine approval prompts, but ask before approving
+  prompts that contain sensitive terms such as secrets, production, deployment,
+  destructive actions, payments, or billing. This is the default.
+- `PolicyBlock`: auto-click routine approval prompts, but block sensitive
+  prompts without asking.
+- `AlwaysAllow`: click known approval buttons in trusted target windows even
+  when sensitive terms are detected. This still keeps process, path, and button
+  label checks.
+- `Disabled`: do not click anything.
+
+Live policy commands:
+
+```bat
+tools\windows-auto-allow-policy-control.cmd -Mode PolicyAsk
+tools\windows-auto-allow-policy-control.cmd -Mode AlwaysAllow
+tools\windows-auto-allow-policy-control.cmd -Mode PolicyBlock
+tools\windows-auto-allow-policy-control.cmd -Mode Disabled
+tools\windows-auto-allow-policy-control.cmd -Prefer Once
+tools\windows-auto-allow-policy-control.cmd -DryRun On
+tools\windows-auto-allow-policy-control.cmd -DryRun Off
+```
+
+The Claude CLI wrappers still use Claude Code startup options. A running Claude
+Code CLI process cannot have its internal `--permission-mode` changed by this
+tool after launch; the live policy controls the separate Windows desktop-click
+watchers.
+
 ## Files
 
 CLI wrappers:
@@ -52,6 +87,9 @@ CLI wrappers:
 
 Windows desktop-click tools:
 
+- `tools/auto-allow-policy.json`: live policy shared by Windows desktop-click tools.
+- `tools/windows-auto-allow-policy-control.cmd`: Windows cmd policy changer.
+- `tools/windows-auto-allow-policy-control.ps1`: Windows PowerShell policy changer.
 - `tools/windows-claude-desktop-click-auto-allow-gui.exe`: Windows Claude desktop-click GUI.
 - `tools/windows-claude-desktop-click-auto-allow-console.exe`: Windows Claude desktop-click console launcher.
 - `tools/windows-claude-desktop-click-auto-allow.ps1`: Windows Claude UI Automation engine.
@@ -96,9 +134,9 @@ made unhackable. The current build reduces common abuse and hijacking risks by:
 - targeting VS Code / Cursor by process name and executable path for Copilot desktop-click mode
 - rejecting custom target regex unless `-AllowCustomTarget` is explicit
 - rejecting custom approval labels unless `-AllowCustomButtonText` is explicit
-- blocking automatic clicks when prompt text contains sensitive terms such as
+- applying the live policy when prompt text contains sensitive terms such as
   secrets, production, deployment, destructive git/file/database actions, or
-  payments
+  payments; default `PolicyAsk` requires user confirmation for those prompts
 - resolving the PowerShell engine script only from the executable directory
 - rejecting symbolic link / reparse point script substitution
 - using `RemoteSigned` PowerShell execution policy instead of `Bypass`

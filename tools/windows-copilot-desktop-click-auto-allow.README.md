@@ -11,6 +11,8 @@ approval buttons such as `Allow` after safety checks.
 - `windows-copilot-desktop-click-auto-allow-console.exe`: desktop-click console launcher.
 - `windows-copilot-desktop-click-auto-allow.ps1`: Windows UI Automation engine.
 - `windows-copilot-desktop-click-auto-allow.cmd`: cmd convenience launcher.
+- `auto-allow-policy.json`: live policy read by the watcher while it runs.
+- `windows-auto-allow-policy-control.cmd`: cmd policy changer.
 
 ## Ownership
 
@@ -39,15 +41,31 @@ This tool cannot make automated approval risk-free, and no tool can be made
 - known approval button labels only
 - custom target regex blocked unless `-AllowCustomTarget` is provided
 - custom button labels blocked unless `-AllowCustomButtonText` is provided
-- sensitive prompt text guard for secrets, production, deletion, publishing,
-  payments, and similar high-impact actions
+- live policy for sensitive prompt text such as secrets, production, deletion,
+  publishing, payments, and similar high-impact actions
 - sibling script resolution from the executable directory only
 - symbolic link / reparse point rejection for the PowerShell engine script
 - `RemoteSigned` PowerShell execution policy instead of `Bypass`
 - dry-run mode for verification before use
 
-If a prompt contains sensitive terms, the tool logs a block and does not click.
-To override that for a specific trusted run, use `-AllowSensitivePrompt`.
+The default live policy is `PolicyAsk`: routine approval prompts are clicked,
+but prompts containing sensitive terms require a Windows confirmation dialog.
+Use `PolicyBlock` to block those prompts without asking, `AlwaysAllow` to click
+known approval buttons even when sensitive terms are detected, or `Disabled` to
+stop all automatic clicks.
+
+The live policy is read from `auto-allow-policy.json` on each scan loop. Change
+it while the watcher is running:
+
+```bat
+tools\windows-auto-allow-policy-control.cmd -Mode PolicyAsk
+tools\windows-auto-allow-policy-control.cmd -Mode AlwaysAllow
+tools\windows-auto-allow-policy-control.cmd -Mode PolicyBlock
+tools\windows-auto-allow-policy-control.cmd -Mode Disabled
+```
+
+The older command-line override still works for a trusted run:
+`-AllowSensitivePrompt`.
 
 ## Run
 

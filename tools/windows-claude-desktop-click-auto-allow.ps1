@@ -4,6 +4,7 @@ param(
     [string]$ProcessNameRegex = '(?i)^claude$',
     [string]$TargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)',
     [string[]]$BlockedPromptText,
+    [string]$PolicyFile = '',
     [ValidateSet('Always', 'Once')]
     [string]$Prefer = 'Always',
     [int]$IntervalMilliseconds = 120,
@@ -24,6 +25,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName WindowsBase
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -43,6 +45,13 @@ $ToolRepository = 'https://github.com/positivef/claude-auto-allow'
 $ToolProvenance = 'CAA-POSITIVEF-2026-07'
 $DefaultProcessNameRegex = '(?i)^claude$'
 $DefaultTargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)'
+$CommandLinePreferProvided = $PSBoundParameters.ContainsKey('Prefer')
+$CommandLineDryRunProvided = $PSBoundParameters.ContainsKey('DryRun')
+$CommandLineDiagnosticProvided = $PSBoundParameters.ContainsKey('Diagnostic')
+
+if ([string]::IsNullOrWhiteSpace($PolicyFile)) {
+    $PolicyFile = Join-Path $PSScriptRoot 'auto-allow-policy.json'
+}
 
 if (($PSBoundParameters.ContainsKey('ButtonText') -and $ButtonText.Count -gt 0) -and -not $AllowCustomButtonText) {
     throw 'Custom ButtonText requires -AllowCustomButtonText. This prevents accidental approval of unrelated buttons.'
@@ -75,6 +84,171 @@ function Write-ToolLog {
         $timestamp = Get-Date -Format 'HH:mm:ss'
         Write-Host "[$timestamp] $Message"
     }
+}
+
+$script:LastPolicyWarning = ''
+$script:RecentSensitivePromptDenials = @{}
+
+function Write-PolicyWarningOnce {
+    param([string]$Message)
+
+    if ($script:LastPolicyWarning -ne $Message) {
+        Write-ToolLog $Message
+        $script:LastPolicyWarning = $Message
+    }
+}
+
+function ConvertTo-PolicyBool {
+    param(
+        $Value,
+        [bool]$Default
+    )
+
+    if ($null -eq $Value) {
+        return $Default
+    }
+
+    if ($Value -is [bool]) {
+        return [bool]$Value
+    }
+
+    $text = "$Value".Trim().ToLowerInvariant()
+    if ($text -in @('true', '1', 'yes', 'on')) {
+        return $true
+    }
+    if ($text -in @('false', '0', 'no', 'off')) {
+        return $false
+    }
+
+    return $Default
+}
+
+function Get-LivePolicy {
+    $mode = 'PolicyAsk'
+    $preferValue = $Prefer
+    $dryRunValue = $false
+    $diagnosticValue = $false
+
+    if (Test-Path -LiteralPath $PolicyFile -PathType Leaf) {
+        try {
+            $json = Get-Content -LiteralPath $PolicyFile -Raw -Encoding UTF8
+            if (-not [string]::IsNullOrWhiteSpace($json)) {
+                $config = $json | ConvertFrom-Json
+
+                if ($config.PSObject.Properties.Name -contains 'mode') {
+                    $candidateMode = "$($config.mode)".Trim()
+                    if ($candidateMode -in @('AlwaysAllow', 'PolicyAsk', 'PolicyBlock', 'Disabled')) {
+                        $mode = $candidateMode
+                    }
+                }
+
+                if ($config.PSObject.Properties.Name -contains 'prefer') {
+                    $candidatePrefer = "$($config.prefer)".Trim()
+                    if ($candidatePrefer -in @('Always', 'Once')) {
+                        $preferValue = $candidatePrefer
+                    }
+                }
+
+                if ($config.PSObject.Properties.Name -contains 'dryRun') {
+                    $dryRunValue = ConvertTo-PolicyBool -Value $config.dryRun -Default $dryRunValue
+                }
+
+                if ($config.PSObject.Properties.Name -contains 'diagnostic') {
+                    $diagnosticValue = ConvertTo-PolicyBool -Value $config.diagnostic -Default $diagnosticValue
+                }
+            }
+        }
+        catch {
+            Write-PolicyWarningOnce "Policy file could not be read; using safe defaults. Path='$PolicyFile' Error='$($_.Exception.Message)'"
+        }
+    }
+
+    if ($AllowSensitivePrompt) {
+        $mode = 'AlwaysAllow'
+    }
+
+    if ($CommandLinePreferProvided) {
+        $preferValue = $Prefer
+    }
+
+    if ($CommandLineDryRunProvided) {
+        $dryRunValue = [bool]$DryRun
+    }
+
+    if ($CommandLineDiagnosticProvided) {
+        $diagnosticValue = [bool]$Diagnostic
+    }
+
+    [pscustomobject]@{
+        Mode = $mode
+        Prefer = $preferValue
+        DryRun = $dryRunValue
+        Diagnostic = $diagnosticValue
+    }
+}
+
+function Request-SensitivePromptApproval {
+    param(
+        [object]$Target,
+        [System.Windows.Automation.AutomationElement]$Window,
+        [string]$Reason,
+        [object]$Policy
+    )
+
+    if ($Policy.Mode -eq 'AlwaysAllow') {
+        return $true
+    }
+
+    if ($Policy.Mode -eq 'Disabled') {
+        Write-ToolLog "Auto allow is disabled by live policy. Skipping '$($Target.Title)'."
+        return $false
+    }
+
+    if ($Policy.Mode -eq 'PolicyBlock') {
+        Write-ToolLog "Blocked automatic click in '$($Target.Title)' because sensitive prompt text matched: $Reason"
+        return $false
+    }
+
+    if ($Policy.DryRun) {
+        Write-ToolLog "Dry run: would ask before allowing '$($Target.Title)' because sensitive prompt text matched: $Reason"
+        return $false
+    }
+
+    $windowHandle = $Window.Current.NativeWindowHandle
+    $denyKey = "$windowHandle|$Reason"
+    if ($script:RecentSensitivePromptDenials.ContainsKey($denyKey)) {
+        $elapsed = ((Get-Date) - $script:RecentSensitivePromptDenials[$denyKey]).TotalSeconds
+        if ($elapsed -lt 15) {
+            return $false
+        }
+    }
+
+    $message = @"
+Claude approval prompt contains sensitive text.
+
+Target : $($Target.Title)
+Process: $($Target.ProcessName):$($Target.ProcessId)
+Matched: $Reason
+
+Allow this one automatic click?
+"@
+
+    $result = [System.Windows.Forms.MessageBox]::Show(
+        $message,
+        'Claude Auto Allow - policy confirmation',
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning,
+        [System.Windows.Forms.MessageBoxDefaultButton]::Button2
+    )
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        Write-ToolLog "User allowed one sensitive prompt in '$($Target.Title)'."
+        return $true
+    }
+
+    $script:RecentSensitivePromptDenials[$denyKey] = Get-Date
+    Write-ToolLog "User denied sensitive prompt in '$($Target.Title)'."
+    return $false
 }
 
 function Get-ProcessPath {
@@ -631,7 +805,23 @@ if (-not $PSBoundParameters.ContainsKey('ButtonText') -or $ButtonText.Count -eq 
     )
 }
 
-if (-not $PSBoundParameters.ContainsKey('BlockedPromptText') -or $BlockedPromptText.Count -eq 0) {
+$koreanSensitiveTerms = @(
+    (New-TextFromCodePoints @(0xC0AD, 0xC81C)),
+    (New-TextFromCodePoints @(0xC81C, 0xAC70)),
+    (New-TextFromCodePoints @(0xCD08, 0xAE30, 0xD654)),
+    (New-TextFromCodePoints @(0xBC30, 0xD3EC)),
+    (New-TextFromCodePoints @(0xC6B4, 0xC601)),
+    (New-TextFromCodePoints @(0xBE44, 0xBC00, 0xBC88, 0xD638)),
+    (New-TextFromCodePoints @(0xD1A0, 0xD070)),
+    (New-TextFromCodePoints @(0xC2DC, 0xD06C, 0xB9BF)),
+    (New-TextFromCodePoints @(0xAC1C, 0xC778, 0xC815, 0xBCF4)),
+    (New-TextFromCodePoints @(0xACB0, 0xC81C)),
+    (New-TextFromCodePoints @(0xAD6C, 0xB3C5))
+)
+$koreanSensitivePattern = ($koreanSensitiveTerms | ForEach-Object { [regex]::Escape($_) }) -join '|'
+
+$usingDefaultBlockedPromptText = -not $PSBoundParameters.ContainsKey('BlockedPromptText') -or $BlockedPromptText.Count -eq 0
+if ($usingDefaultBlockedPromptText) {
     $BlockedPromptText = @(
         '(?i)dangerously',
         '(?i)bypass\s+permissions?',
@@ -640,10 +830,28 @@ if (-not $PSBoundParameters.ContainsKey('BlockedPromptText') -or $BlockedPromptT
         '(?i)deploy|release|publish',
         '(?i)secret|token|password|credential|api\s*key|private\s*key|ssh\s*key',
         '(?i)delete|remove|destroy|truncate|drop\s+table|reset\s+--hard|git\s+clean|force\s+push',
-        '(?i)payment|purchase|subscribe|billing',
-        '삭제|제거|초기화|배포|운영|비밀번호|토큰|시크릿|개인정보|결제'
+        '(?i)payment|purchase|subscribe|billing'
     )
 }
+
+$validatedBlockedPromptText = @()
+foreach ($pattern in $BlockedPromptText) {
+    if ([string]::IsNullOrWhiteSpace($pattern)) {
+        continue
+    }
+
+    try {
+        $null = '' -match $pattern
+        $validatedBlockedPromptText += $pattern
+    }
+    catch {
+        Write-ToolLog "Ignoring invalid blocked prompt regex: $pattern"
+    }
+}
+if ($usingDefaultBlockedPromptText -and -not [string]::IsNullOrWhiteSpace($koreanSensitivePattern)) {
+    $validatedBlockedPromptText += $koreanSensitivePattern
+}
+$BlockedPromptText = $validatedBlockedPromptText
 
 $alwaysButtonText = @(
     'Always allow',
@@ -694,12 +902,14 @@ if ($IntervalMilliseconds -lt 100) {
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $recentClicks = @{}
 $startedAt = Get-Date
+$initialPolicy = Get-LivePolicy
 
 Write-ToolLog "Watching for button: $($ButtonText -join ', ')"
 Write-ToolLog "Owner: $ToolOwner"
 Write-ToolLog "Repository: $ToolRepository"
 Write-ToolLog "Provenance: $ToolProvenance"
-Write-ToolLog "Preference: $Prefer"
+Write-ToolLog "Policy file: $PolicyFile"
+Write-ToolLog "Live policy: mode=$($initialPolicy.Mode), prefer=$($initialPolicy.Prefer), dryRun=$($initialPolicy.DryRun), diagnostic=$($initialPolicy.Diagnostic)"
 Write-ToolLog "Target title regex: $WindowTitleRegex"
 Write-ToolLog "Target process regex: $ProcessNameRegex"
 Write-ToolLog "Target path regex: $TargetPathRegex"
@@ -710,13 +920,7 @@ if ($AllowCustomButtonText) {
     Write-ToolLog 'Custom button text mode is enabled.'
 }
 if ($AllowSensitivePrompt) {
-    Write-ToolLog 'Sensitive prompt guard is disabled for this run.'
-}
-if ($DryRun) {
-    Write-ToolLog 'Dry run mode is on; matching buttons will be logged but not clicked.'
-}
-if ($Diagnostic) {
-    Write-ToolLog 'Diagnostic mode is on; permission-like elements in target windows will be logged.'
+    Write-ToolLog 'Sensitive prompt guard is disabled for this run by command-line override.'
 }
 if ($DeepScan) {
     Write-ToolLog 'Deep scan mode is on; this is slower and should only be used when point sampling misses a button.'
@@ -732,27 +936,29 @@ while ($true) {
         exit 0
     }
 
+    $policy = Get-LivePolicy
+    if ($policy.Mode -eq 'Disabled') {
+        Start-Sleep -Milliseconds $IntervalMilliseconds
+        continue
+    }
+
     $targetWindows = Get-TargetWindows -TitleRegex $WindowTitleRegex -ProcRegex $ProcessNameRegex -PathRegex $TargetPathRegex
 
     foreach ($target in $targetWindows) {
         $window = $target.Element
         $blockedReason = Get-BlockedPromptReason -Window $window -Patterns $BlockedPromptText
-        if (-not [string]::IsNullOrWhiteSpace($blockedReason)) {
-            Write-ToolLog "Blocked automatic click in '$($target.Title)' because sensitive prompt text matched: $blockedReason"
-            continue
-        }
 
         $elements = Get-PointSampledButtonElements -Window $window
-        $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
+        $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $policy.Prefer -Diagnostic:$policy.Diagnostic
 
         if (-not $DisableCoveredFallback -and $candidates.Count -eq 0) {
             $elements = Get-RegionButtonElements -Window $window
-            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
+            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $policy.Prefer -Diagnostic:$policy.Diagnostic
         }
 
         if ($DeepScan -and $candidates.Count -eq 0) {
             $elements = Get-VisibleButtonElements -Window $window
-            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
+            $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $policy.Prefer -Diagnostic:$policy.Diagnostic
         }
 
         foreach ($candidate in ($candidates | Sort-Object Priority)) {
@@ -770,11 +976,17 @@ while ($true) {
                 }
             }
 
+            if (-not [string]::IsNullOrWhiteSpace($blockedReason)) {
+                if (-not (Request-SensitivePromptApproval -Target $target -Window $window -Reason $blockedReason -Policy $policy)) {
+                    break
+                }
+            }
+
             $recentClicks[$clickKey] = Get-Date
-            $action = if ($DryRun) { 'Would click' } else { 'Clicking' }
+            $action = if ($policy.DryRun) { 'Would click' } else { 'Clicking' }
             Write-ToolLog "$action '$buttonLabel' in '$($target.Title)' [$($target.ProcessName):$($target.ProcessId)]"
 
-            Invoke-Button -Element $element -DryRun:$DryRun | Out-Null
+            Invoke-Button -Element $element -DryRun:$policy.DryRun | Out-Null
 
             if ($Once) {
                 exit 0
