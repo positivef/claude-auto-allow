@@ -2,5 +2,5 @@
 if exist "%~dp0claude-auto-allow.exe" (
   "%~dp0claude-auto-allow.exe" %*
 ) else (
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0claude-auto-allow.ps1" %*
+  powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File "%~dp0claude-auto-allow.ps1" %*
 )

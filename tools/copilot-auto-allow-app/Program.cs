@@ -6,26 +6,26 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-[assembly: AssemblyTitle("Claude Auto Allow")]
-[assembly: AssemblyDescription("Windows helper for Claude permission prompts. Provenance: CAA-POSITIVEF-2026-07.")]
+[assembly: AssemblyTitle("Copilot Auto Allow")]
+[assembly: AssemblyDescription("Windows helper for Copilot permission prompts. Provenance: COPILOT-AA-POSITIVEF-2026-07.")]
 [assembly: AssemblyCompany("positivef")]
-[assembly: AssemblyProduct("Claude Auto Allow")]
+[assembly: AssemblyProduct("Copilot Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
-[assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyTrademark("COPILOT-AA-POSITIVEF-2026-07")]
+[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
 
 internal static class Program
 {
-    private const string Provenance = "CAA-POSITIVEF-2026-07";
+    private const string Provenance = "COPILOT-AA-POSITIVEF-2026-07";
 
     private static int Main(string[] args)
     {
         try
         {
-            Console.WriteLine("Claude Auto Allow - positivef - " + Provenance);
+            Console.WriteLine("Copilot Auto Allow - positivef - " + Provenance);
 
-            string scriptPath = ResolveSafeSiblingFile("claude-auto-allow.ps1");
+            string scriptPath = ResolveSafeSiblingFile("copilot-auto-allow.ps1");
 
             var powershellArgs = new List<string>
             {

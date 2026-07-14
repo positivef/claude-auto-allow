@@ -12,8 +12,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("Claude Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyFileVersion("1.2.0.0")]
 
 internal static class Program
 {
@@ -134,16 +134,19 @@ internal sealed class AutoAllowForm : Form
             return;
         }
 
-        string scriptPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "claude-auto-allow.ps1");
-        if (!File.Exists(scriptPath))
+        string scriptPath;
+        try
         {
-            AppendLog("ERROR: claude-auto-allow.ps1 was not found next to this GUI executable.");
-            AppendLog(scriptPath);
+            scriptPath = ResolveSafeSiblingFile("claude-auto-allow.ps1");
+        }
+        catch (Exception ex)
+        {
+            AppendLog("ERROR: " + ex.Message);
             return;
         }
 
         var args = new StringBuilder();
-        args.Append("-NoProfile -ExecutionPolicy Bypass -File ");
+        args.Append("-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File ");
         args.Append(Quote(scriptPath));
         args.Append(" -Prefer ");
         args.Append(preferenceComboBox.SelectedItem == null ? "Always" : preferenceComboBox.SelectedItem.ToString());
@@ -265,5 +268,29 @@ internal sealed class AutoAllowForm : Form
     private static string Quote(string value)
     {
         return "\"" + value.Replace("\"", "\\\"") + "\"";
+    }
+
+    private static string ResolveSafeSiblingFile(string fileName)
+    {
+        string baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory);
+        string candidate = Path.GetFullPath(Path.Combine(baseDirectory, fileName));
+
+        if (!candidate.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(fileName + " resolved outside the executable directory.");
+        }
+
+        if (!File.Exists(candidate))
+        {
+            throw new FileNotFoundException(fileName + " was not found next to this executable.", candidate);
+        }
+
+        FileAttributes attributes = File.GetAttributes(candidate);
+        if ((attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+        {
+            throw new InvalidOperationException(fileName + " must be a real file, not a reparse point or symbolic link.");
+        }
+
+        return candidate;
     }
 }

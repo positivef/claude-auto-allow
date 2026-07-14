@@ -2,6 +2,8 @@ param(
     [string[]]$ButtonText,
     [string]$WindowTitleRegex = '',
     [string]$ProcessNameRegex = '(?i)^claude$',
+    [string]$TargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)',
+    [string[]]$BlockedPromptText,
     [ValidateSet('Always', 'Once')]
     [string]$Prefer = 'Always',
     [int]$IntervalMilliseconds = 120,
@@ -11,6 +13,9 @@ param(
     [switch]$Diagnostic,
     [switch]$DeepScan,
     [switch]$DisableCoveredFallback,
+    [switch]$AllowCustomTarget,
+    [switch]$AllowCustomButtonText,
+    [switch]$AllowSensitivePrompt,
     [switch]$Quiet
 )
 
@@ -36,6 +41,16 @@ public static class ClaudeAutoAllowNative
 $ToolOwner = 'positivef'
 $ToolRepository = 'https://github.com/positivef/claude-auto-allow'
 $ToolProvenance = 'CAA-POSITIVEF-2026-07'
+$DefaultProcessNameRegex = '(?i)^claude$'
+$DefaultTargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)'
+
+if (($PSBoundParameters.ContainsKey('ButtonText') -and $ButtonText.Count -gt 0) -and -not $AllowCustomButtonText) {
+    throw 'Custom ButtonText requires -AllowCustomButtonText. This prevents accidental approval of unrelated buttons.'
+}
+
+if ((-not [string]::IsNullOrWhiteSpace($WindowTitleRegex) -or $ProcessNameRegex -ne $DefaultProcessNameRegex -or $TargetPathRegex -ne $DefaultTargetPathRegex) -and -not $AllowCustomTarget) {
+    throw 'Custom WindowTitleRegex, ProcessNameRegex, or TargetPathRegex requires -AllowCustomTarget. This prevents targeting unrelated applications.'
+}
 
 function New-TextFromCodePoints {
     param([int[]]$CodePoints)
@@ -60,6 +75,80 @@ function Write-ToolLog {
         $timestamp = Get-Date -Format 'HH:mm:ss'
         Write-Host "[$timestamp] $Message"
     }
+}
+
+function Get-ProcessPath {
+    param([System.Diagnostics.Process]$Process)
+
+    try {
+        if ($Process -and $Process.MainModule) {
+            return $Process.MainModule.FileName
+        }
+    }
+    catch {
+        return ''
+    }
+
+    return ''
+}
+
+function Get-WindowVisibleText {
+    param([System.Windows.Automation.AutomationElement]$Window)
+
+    $parts = New-Object System.Collections.ArrayList
+    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($Window)
+
+    while ($stack.Count -gt 0 -and $parts.Count -lt 300) {
+        $node = [System.Windows.Automation.AutomationElement]$stack.Pop()
+
+        try {
+            if (-not $node.Current.IsOffscreen -and -not [string]::IsNullOrWhiteSpace($node.Current.Name)) {
+                [void]$parts.Add($node.Current.Name)
+            }
+
+            $children = New-Object System.Collections.ArrayList
+            $child = $walker.GetFirstChild($node)
+            while ($child) {
+                [void]$children.Add($child)
+                $child = $walker.GetNextSibling($child)
+            }
+
+            for ($i = $children.Count - 1; $i -ge 0; $i--) {
+                $stack.Push($children[$i])
+            }
+        }
+        catch {
+            continue
+        }
+    }
+
+    return ($parts -join ' ')
+}
+
+function Get-BlockedPromptReason {
+    param(
+        [System.Windows.Automation.AutomationElement]$Window,
+        [string[]]$Patterns
+    )
+
+    if ($AllowSensitivePrompt) {
+        return ''
+    }
+
+    $windowText = Get-WindowVisibleText -Window $Window
+    if ([string]::IsNullOrWhiteSpace($windowText)) {
+        return ''
+    }
+
+    foreach ($pattern in $Patterns) {
+        if (-not [string]::IsNullOrWhiteSpace($pattern) -and $windowText -match $pattern) {
+            return $pattern
+        }
+    }
+
+    return ''
 }
 
 function Test-AllowedButtonName {
@@ -431,7 +520,8 @@ function Test-TargetWindow {
 function Get-TargetWindows {
     param(
         [string]$TitleRegex,
-        [string]$ProcRegex
+        [string]$ProcRegex,
+        [string]$PathRegex
     )
 
     $targets = New-Object System.Collections.ArrayList
@@ -451,10 +541,19 @@ function Get-TargetWindows {
     foreach ($process in $processes) {
         $title = $process.MainWindowTitle
         $processName = $process.ProcessName
+        $processPath = Get-ProcessPath -Process $process
         $titleMatches = -not [string]::IsNullOrWhiteSpace($TitleRegex) -and $title -match $TitleRegex
         $processMatches = -not [string]::IsNullOrWhiteSpace($ProcRegex) -and $processName -match $ProcRegex
+        $pathMatches = [string]::IsNullOrWhiteSpace($PathRegex) -or (-not [string]::IsNullOrWhiteSpace($processPath) -and $processPath -match $PathRegex)
 
         if (-not ($titleMatches -or $processMatches)) {
+            continue
+        }
+
+        if (-not $pathMatches) {
+            if ($Diagnostic) {
+                Write-ToolLog "Skipped target with unexpected executable path: process='$processName' path='$processPath'"
+            }
             continue
         }
 
@@ -468,6 +567,7 @@ function Get-TargetWindows {
                 Element = $element
                 Title = $element.Current.Name
                 ProcessName = $processName
+                ProcessPath = $processPath
                 ProcessId = $process.Id
             })
         }
@@ -531,6 +631,20 @@ if (-not $PSBoundParameters.ContainsKey('ButtonText') -or $ButtonText.Count -eq 
     )
 }
 
+if (-not $PSBoundParameters.ContainsKey('BlockedPromptText') -or $BlockedPromptText.Count -eq 0) {
+    $BlockedPromptText = @(
+        '(?i)dangerously',
+        '(?i)bypass\s+permissions?',
+        '(?i)skip\s+permissions?',
+        '(?i)production|prod\b',
+        '(?i)deploy|release|publish',
+        '(?i)secret|token|password|credential|api\s*key|private\s*key|ssh\s*key',
+        '(?i)delete|remove|destroy|truncate|drop\s+table|reset\s+--hard|git\s+clean|force\s+push',
+        '(?i)payment|purchase|subscribe|billing',
+        '삭제|제거|초기화|배포|운영|비밀번호|토큰|시크릿|개인정보|결제'
+    )
+}
+
 $alwaysButtonText = @(
     'Always allow',
     'Always Allow',
@@ -588,6 +702,16 @@ Write-ToolLog "Provenance: $ToolProvenance"
 Write-ToolLog "Preference: $Prefer"
 Write-ToolLog "Target title regex: $WindowTitleRegex"
 Write-ToolLog "Target process regex: $ProcessNameRegex"
+Write-ToolLog "Target path regex: $TargetPathRegex"
+if ($AllowCustomTarget) {
+    Write-ToolLog 'Custom target mode is enabled.'
+}
+if ($AllowCustomButtonText) {
+    Write-ToolLog 'Custom button text mode is enabled.'
+}
+if ($AllowSensitivePrompt) {
+    Write-ToolLog 'Sensitive prompt guard is disabled for this run.'
+}
 if ($DryRun) {
     Write-ToolLog 'Dry run mode is on; matching buttons will be logged but not clicked.'
 }
@@ -608,10 +732,16 @@ while ($true) {
         exit 0
     }
 
-    $targetWindows = Get-TargetWindows -TitleRegex $WindowTitleRegex -ProcRegex $ProcessNameRegex
+    $targetWindows = Get-TargetWindows -TitleRegex $WindowTitleRegex -ProcRegex $ProcessNameRegex -PathRegex $TargetPathRegex
 
     foreach ($target in $targetWindows) {
         $window = $target.Element
+        $blockedReason = Get-BlockedPromptReason -Window $window -Patterns $BlockedPromptText
+        if (-not [string]::IsNullOrWhiteSpace($blockedReason)) {
+            Write-ToolLog "Blocked automatic click in '$($target.Title)' because sensitive prompt text matched: $blockedReason"
+            continue
+        }
+
         $elements = Get-PointSampledButtonElements -Window $window
         $candidates = Get-AllowedButtonCandidates -Elements $elements -AllowedNames $allowedButtonNames -AlwaysNames $alwaysButtonNames -OnceNames $onceButtonNames -Prefer $Prefer -Diagnostic:$Diagnostic
 
