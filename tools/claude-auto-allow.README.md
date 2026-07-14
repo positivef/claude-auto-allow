@@ -6,6 +6,8 @@ Windows에서 Claude/Code 계열 팝업에 `Always allow`, `항상 허용`, `All
 
 Copyright (c) 2026 positivef. All rights reserved.
 
+`positivef`는 이 공개 릴리스의 권리자 및 창작자 계정 식별자입니다. 원저작자/출처 증빙은 `positivef/claude-auto-allow` 원본 GitHub 계정, 저장소 이력, 커밋 시각, push된 커밋 해시, 릴리스 산출물 기록을 기준으로 확인해야 합니다.
+
 이 저장소는 공개 열람용이며 오픈소스가 아닙니다. 복제, 수정, 재배포, 재패키징, 판매, 파생 제품 제작, AI 학습/자동 추출, 본인 창작물처럼 표시하는 행위는 사전 서면 허가 없이 허용되지 않습니다.
 
 ## 실행

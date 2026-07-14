@@ -6,6 +6,11 @@ Windows helper for automatically accepting Claude Desktop permission prompts.
 
 Copyright (c) 2026 positivef. All rights reserved.
 
+`positivef` is the public rights-holder and creator-account identifier for this
+release. Authorship and provenance should be verified against the original
+GitHub account, repository history, commit timestamps, pushed commit hashes, and
+release artifacts for `positivef/claude-auto-allow`.
+
 This repository is public for inspection, but it is not open source. No
 permission is granted to copy, modify, redistribute, repackage, sell, publish,
 train AI systems on, or present this work as someone else's original work.
