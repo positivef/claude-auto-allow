@@ -6,10 +6,10 @@ using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("Claude Auto Allow GUI")]
-[assembly: AssemblyDescription("GUI launcher for Claude Auto Allow. Provenance: CAA-POSITIVEF-2026-07.")]
+[assembly: AssemblyTitle("Windows Claude Desktop Click Auto Allow GUI")]
+[assembly: AssemblyDescription("GUI launcher for Windows Claude Desktop Click Auto Allow. Provenance: CAA-POSITIVEF-2026-07.")]
 [assembly: AssemblyCompany("positivef")]
-[assembly: AssemblyProduct("Claude Auto Allow")]
+[assembly: AssemblyProduct("Windows Claude Desktop Click Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
 [assembly: AssemblyVersion("1.2.0.0")]
@@ -42,7 +42,7 @@ internal sealed class AutoAllowForm : Form
 
     public AutoAllowForm()
     {
-        Text = "Claude Auto Allow - positivef";
+        Text = "Windows Claude Desktop Click Auto Allow - positivef";
         Width = 840;
         Height = 560;
         MinimumSize = new Size(720, 420);
@@ -137,7 +137,7 @@ internal sealed class AutoAllowForm : Form
         string scriptPath;
         try
         {
-            scriptPath = ResolveSafeSiblingFile("claude-auto-allow.ps1");
+            scriptPath = ResolveSafeSiblingFile("windows-claude-desktop-click-auto-allow.ps1");
         }
         catch (Exception ex)
         {

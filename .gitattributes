@@ -1,0 +1,8 @@
+*.sh text eol=lf
+*.command text eol=lf
+tools/macos/* text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.cs text eol=crlf
+*.md text eol=lf
+.gitattributes text eol=lf

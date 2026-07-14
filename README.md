@@ -7,8 +7,8 @@ There are two different concepts in this repository:
 
 - **CLI wrapper**: starts Claude Code with `--permission-mode auto`. It does not
   click buttons and only affects new sessions launched through the wrapper.
-- **UI auto-clicker**: watches visible Windows approval dialogs and clicks known
-  approval buttons after safety checks.
+- **Desktop click auto-allow**: watches visible Windows approval dialogs and
+  clicks known approval buttons after safety checks.
 
 ## Ownership And License
 
@@ -25,28 +25,75 @@ train AI systems on, or present this work as someone else's original work.
 
 See [LICENSE.md](LICENSE.md), [NOTICE.md](NOTICE.md), and [SECURITY.md](SECURITY.md).
 
+## File Name Guide
+
+File names intentionally include the operating system and behavior:
+
+- `windows-claude-cli-auto-wrapper.exe`: Windows CLI wrapper. Starts a new Claude Code session with `--permission-mode auto`.
+- `macos-claude-cli-auto-wrapper`: macOS CLI wrapper. Starts a new Claude Code session with `--permission-mode auto`.
+- `windows-claude-desktop-click-auto-allow-*`: Windows desktop-click tool for visible Claude approval prompts.
+- `windows-copilot-desktop-click-auto-allow-*`: Windows desktop-click tool for visible Copilot approval prompts.
+
+If the file name says `cli-auto-wrapper`, it launches Claude Code.
+If the file name says `desktop-click-auto-allow`, it watches and clicks visible
+approval buttons.
+
 ## Files
 
-- `tools/macos/claude-yes`: macOS Claude Code CLI wrapper.
-- `tools/macos/claude-yes-folder.command`: macOS folder picker launcher for the CLI wrapper.
-- `tools/macos/install-claude-yes.sh`: macOS installer for the CLI wrapper.
+CLI wrappers:
+
+- `tools/windows-claude-cli-auto-wrapper.exe`: Windows Claude Code CLI wrapper.
+- `tools/windows-claude-cli-auto-wrapper.cmd`: Windows cmd convenience launcher.
+- `tools/windows-claude-cli-auto-wrapper-app/Program.cs`: Windows CLI wrapper source.
+- `tools/macos/macos-claude-cli-auto-wrapper`: macOS Claude Code CLI wrapper.
+- `tools/macos/macos-claude-cli-auto-folder-picker.command`: macOS folder picker launcher for the CLI wrapper.
+- `tools/macos/install-macos-claude-cli-auto-wrapper.sh`: macOS installer for the CLI wrapper.
 - `tools/macos/README.md`: macOS CLI wrapper usage.
-- `tools/claude-auto-allow-gui.exe`: Windows UI auto-clicker GUI with Start/Stop buttons and a log panel.
-- `tools/claude-auto-allow.exe`: Windows UI auto-clicker console launcher.
-- `tools/claude-auto-allow.ps1`: Windows Claude UI Automation engine.
-- `tools/claude-auto-allow.README.md`: Windows Claude auto-clicker usage, security model, and ownership details.
-- `tools/copilot-auto-allow.exe`: Windows Copilot UI auto-clicker console launcher.
-- `tools/copilot-auto-allow.ps1`: Windows Copilot UI Automation engine.
-- `tools/copilot-auto-allow.README.md`: Windows Copilot auto-clicker usage, security model, and ownership details.
+
+Windows desktop-click tools:
+
+- `tools/windows-claude-desktop-click-auto-allow-gui.exe`: Windows Claude desktop-click GUI.
+- `tools/windows-claude-desktop-click-auto-allow-console.exe`: Windows Claude desktop-click console launcher.
+- `tools/windows-claude-desktop-click-auto-allow.ps1`: Windows Claude UI Automation engine.
+- `tools/windows-claude-desktop-click-auto-allow.README.md`: Windows Claude desktop-click usage and security model.
+- `tools/windows-copilot-desktop-click-auto-allow-console.exe`: Windows Copilot desktop-click console launcher.
+- `tools/windows-copilot-desktop-click-auto-allow.ps1`: Windows Copilot UI Automation engine.
+- `tools/windows-copilot-desktop-click-auto-allow.README.md`: Windows Copilot desktop-click usage and security model.
 - `SECURITY.md`: hardening notes and vulnerability reporting guidance.
+
+## CLI Wrapper Display
+
+The CLI wrappers set the terminal title and print a startup banner so it is
+clear that the wrapper is active.
+
+Windows title example:
+
+```text
+[CLAUDE CLI WRAPPER][AUTO COMMAND ACCEPT] Playground | fix build error
+```
+
+macOS title example:
+
+```text
+[CLAUDE CLI WRAPPER][AUTO COMMAND ACCEPT] my-project | interactive session
+```
+
+The banner includes:
+
+- project folder name
+- full project path
+- task summary, or `interactive session`
+- whether `--permission-mode auto` was injected
+- provenance marker
 
 ## Security Model
 
 This tool does not make automated approvals risk-free, and no software can be
 made unhackable. The current build reduces common abuse and hijacking risks by:
 
-- targeting Claude by process name and executable path by default
-- targeting VS Code / Cursor by process name and executable path for Copilot
+- using Claude Code's built-in `--permission-mode auto` for CLI wrappers
+- targeting Claude by process name and executable path for Windows desktop-click mode
+- targeting VS Code / Cursor by process name and executable path for Copilot desktop-click mode
 - rejecting custom target regex unless `-AllowCustomTarget` is explicit
 - rejecting custom approval labels unless `-AllowCustomButtonText` is explicit
 - blocking automatic clicks when prompt text contains sensitive terms such as
@@ -58,63 +105,54 @@ made unhackable. The current build reduces common abuse and hijacking risks by:
 
 ## Run
 
+Windows CLI wrapper:
+
+```bat
+cd /d C:\path\to\project
+tools\windows-claude-cli-auto-wrapper.exe "fix build error"
+```
+
 macOS CLI wrapper:
 
 ```sh
 cd /path/to/project
-tools/macos/claude-yes
+tools/macos/macos-claude-cli-auto-wrapper "fix build error"
 ```
 
 macOS folder picker installer:
 
 ```sh
 cd tools/macos
-chmod +x claude-yes claude-yes-folder.command install-claude-yes.sh
-./install-claude-yes.sh
+chmod +x macos-claude-cli-auto-wrapper macos-claude-cli-auto-folder-picker.command install-macos-claude-cli-auto-wrapper.sh
+./install-macos-claude-cli-auto-wrapper.sh
 ```
 
-Windows Claude UI auto-clicker:
-
-Double-click:
+Windows Claude desktop-click GUI:
 
 ```bat
-tools\claude-auto-allow-gui.exe
+tools\windows-claude-desktop-click-auto-allow-gui.exe
 ```
 
-The GUI starts monitoring automatically. Use `Stop` to pause it and `Start` to
-resume. Click events and diagnostics are shown in the log area. Use the `Prefer`
-dropdown to choose whether `Always allow` or `Allow once` should win when both
-buttons are present.
-
-For console mode:
+Windows Claude desktop-click console:
 
 ```bat
-tools\claude-auto-allow.exe
+tools\windows-claude-desktop-click-auto-allow-console.exe
 ```
 
-Dry-run:
+Windows Claude desktop-click dry-run:
 
 ```bat
-tools\claude-auto-allow.exe -DryRun -Diagnostic
+tools\windows-claude-desktop-click-auto-allow-console.exe -DryRun -Diagnostic
 ```
 
-To prefer one-time approval in console mode:
+Windows Copilot desktop-click console:
 
 ```bat
-tools\claude-auto-allow.exe -Prefer Once
+tools\windows-copilot-desktop-click-auto-allow-console.exe
 ```
 
-The Claude tool targets trusted Claude windows and clicks matching approval
-buttons exposed through Windows UI Automation.
-
-Copilot console mode:
+Windows Copilot desktop-click dry-run:
 
 ```bat
-tools\copilot-auto-allow.exe
-```
-
-Copilot dry-run:
-
-```bat
-tools\copilot-auto-allow.exe -DryRun
+tools\windows-copilot-desktop-click-auto-allow-console.exe -DryRun
 ```

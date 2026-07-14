@@ -6,10 +6,10 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-[assembly: AssemblyTitle("Claude Auto Allow")]
-[assembly: AssemblyDescription("Windows helper for Claude permission prompts. Provenance: CAA-POSITIVEF-2026-07.")]
+[assembly: AssemblyTitle("Windows Claude Desktop Click Auto Allow")]
+[assembly: AssemblyDescription("Windows desktop-click helper for Claude permission prompts. Provenance: CAA-POSITIVEF-2026-07.")]
 [assembly: AssemblyCompany("positivef")]
-[assembly: AssemblyProduct("Claude Auto Allow")]
+[assembly: AssemblyProduct("Windows Claude Desktop Click Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("CAA-POSITIVEF-2026-07")]
 [assembly: AssemblyVersion("1.2.0.0")]
@@ -23,9 +23,9 @@ internal static class Program
     {
         try
         {
-            Console.WriteLine("Claude Auto Allow - positivef - " + Provenance);
+            Console.WriteLine("Windows Claude Desktop Click Auto Allow - positivef - " + Provenance);
 
-            string scriptPath = ResolveSafeSiblingFile("claude-auto-allow.ps1");
+            string scriptPath = ResolveSafeSiblingFile("windows-claude-desktop-click-auto-allow.ps1");
 
             var powershellArgs = new List<string>
             {

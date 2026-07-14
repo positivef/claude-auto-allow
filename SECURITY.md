@@ -2,14 +2,16 @@
 
 ## Scope
 
-This policy covers Claude Auto Allow, Copilot Auto Allow, and Claude CLI Auto
-Mode for macOS source code, scripts, compiled binaries, documentation, and
+This policy covers Windows Claude CLI Auto Wrapper, macOS Claude CLI Auto
+Wrapper, Windows Claude Desktop Click Auto Allow, and Windows Copilot Desktop
+Click Auto Allow source code, scripts, compiled binaries, documentation, and
 release artifacts in `positivef/claude-auto-allow`.
 
 ## Security Posture
 
-Claude Auto Allow automates approval clicks. That class of tool carries inherent
-risk, so the project uses defensive constraints rather than broad automation:
+The desktop-click tools automate approval clicks. That class of tool carries
+inherent risk, so the project uses defensive constraints rather than broad
+automation:
 
 - target process name and executable path checks for Claude, VS Code, Cursor,
   and VSCodium
@@ -20,8 +22,8 @@ risk, so the project uses defensive constraints rather than broad automation:
 - symbolic link / reparse point rejection for the PowerShell engine script
 - dry-run and diagnostic modes
 - provenance and copyright notices in source, binaries, and documentation
-- macOS CLI wrapper use of Claude Code's built-in `--permission-mode auto`
-  instead of global button clicking
+- Windows and macOS CLI wrappers use Claude Code's built-in
+  `--permission-mode auto` instead of global button clicking
 
 These controls reduce common misuse and hijacking risks, but they do not make
 the software unhackable and do not replace user judgment.
@@ -39,8 +41,8 @@ Use this software only in trusted local environments. Do not use it to approve:
 When in doubt, run with:
 
 ```bat
-tools\claude-auto-allow.exe -DryRun -Diagnostic
-tools\copilot-auto-allow.exe -DryRun
+tools\windows-claude-desktop-click-auto-allow-console.exe -DryRun -Diagnostic
+tools\windows-copilot-desktop-click-auto-allow-console.exe -DryRun
 ```
 
 ## Vulnerability Reports

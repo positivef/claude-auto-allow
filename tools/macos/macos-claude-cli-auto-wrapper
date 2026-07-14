@@ -1,0 +1,121 @@
+#!/bin/zsh
+set -euo pipefail
+
+# Claude Code CLI auto-mode wrapper for macOS.
+# This is a startup wrapper, not a global button clicker.
+
+PROVENANCE="CLAUDE-CLI-AUTO-POSITIVEF-2026-07"
+
+has_permission_override=false
+for arg in "$@"; do
+  case "$arg" in
+    --dangerously-skip-permissions|--allow-dangerously-skip-permissions|--permission-mode|--permission-mode=*)
+      has_permission_override=true
+      break
+      ;;
+  esac
+done
+
+final_args=()
+if [[ "$has_permission_override" == false ]]; then
+  final_args+=(--permission-mode auto)
+fi
+final_args+=("$@")
+
+task_summary() {
+  local skip_next=false
+  local parts=()
+  local arg
+
+  for arg in "$@"; do
+    if [[ "$skip_next" == true ]]; then
+      skip_next=false
+      continue
+    fi
+
+    case "$arg" in
+      --permission-mode|--model|--agent|--name)
+        skip_next=true
+        continue
+        ;;
+      --permission-mode=*)
+        continue
+        ;;
+      -*)
+        continue
+        ;;
+    esac
+
+    parts+=("$arg")
+  done
+
+  local summary="${(j: :)parts}"
+  if [[ -z "$summary" ]]; then
+    summary="interactive session"
+  fi
+
+  if (( ${#summary} > 72 )); then
+    summary="${summary[1,69]}..."
+  fi
+
+  print -r -- "$summary"
+}
+
+resolve_claude() {
+  if [[ -n "${CLAUDE_BIN:-}" && -x "${CLAUDE_BIN:-}" ]]; then
+    print -r -- "$CLAUDE_BIN"
+    return 0
+  fi
+
+  local candidate
+  for candidate in \
+    "$HOME/.npm-global/bin/claude" \
+    "$HOME/.local/bin/claude" \
+    "/opt/homebrew/bin/claude" \
+    "/usr/local/bin/claude"; do
+    if [[ -x "$candidate" ]]; then
+      print -r -- "$candidate"
+      return 0
+    fi
+  done
+
+  candidate="$(command -v claude 2>/dev/null || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    print -r -- "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+claude_bin="$(resolve_claude)" || {
+  print -u2 "Claude Code CLI was not found. Install Claude Code on this Mac first."
+  exit 1
+}
+
+project_path="$PWD"
+project_name="${PWD:t}"
+if [[ -z "$project_name" ]]; then
+  project_name="$project_path"
+fi
+task="$(task_summary "$@")"
+mode_label="AUTO COMMAND ACCEPT"
+mode_text="--permission-mode auto injected"
+if [[ "$has_permission_override" == true ]]; then
+  mode_label="PERMISSION OVERRIDE"
+  mode_text="permission override supplied by user"
+fi
+
+print -Pn "\e]0;[CLAUDE CLI WRAPPER][$mode_label] $project_name | $task\a"
+
+print "=== CLAUDE CLI AUTO WRAPPER ACTIVE ==="
+print "Project : $project_name"
+print "Path    : $project_path"
+print "Task    : $task"
+print "Mode    : $mode_text"
+print "Owner   : positivef"
+print "Marker  : $PROVENANCE"
+print
+print -P "%F{8}[macos-claude-cli-auto-wrapper] ${(q)claude_bin} ${(@q)final_args}%f"
+
+exec "$claude_bin" "${final_args[@]}"

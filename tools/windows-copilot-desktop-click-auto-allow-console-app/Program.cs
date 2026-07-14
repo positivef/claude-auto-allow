@@ -6,10 +6,10 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-[assembly: AssemblyTitle("Copilot Auto Allow")]
-[assembly: AssemblyDescription("Windows helper for Copilot permission prompts. Provenance: COPILOT-AA-POSITIVEF-2026-07.")]
+[assembly: AssemblyTitle("Windows Copilot Desktop Click Auto Allow")]
+[assembly: AssemblyDescription("Windows desktop-click helper for Copilot permission prompts. Provenance: COPILOT-AA-POSITIVEF-2026-07.")]
 [assembly: AssemblyCompany("positivef")]
-[assembly: AssemblyProduct("Copilot Auto Allow")]
+[assembly: AssemblyProduct("Windows Copilot Desktop Click Auto Allow")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 positivef. All rights reserved.")]
 [assembly: AssemblyTrademark("COPILOT-AA-POSITIVEF-2026-07")]
 [assembly: AssemblyVersion("1.0.0.0")]
@@ -23,9 +23,9 @@ internal static class Program
     {
         try
         {
-            Console.WriteLine("Copilot Auto Allow - positivef - " + Provenance);
+            Console.WriteLine("Windows Copilot Desktop Click Auto Allow - positivef - " + Provenance);
 
-            string scriptPath = ResolveSafeSiblingFile("copilot-auto-allow.ps1");
+            string scriptPath = ResolveSafeSiblingFile("windows-copilot-desktop-click-auto-allow.ps1");
 
             var powershellArgs = new List<string>
             {
