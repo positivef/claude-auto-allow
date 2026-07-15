@@ -2,7 +2,7 @@ param(
     [string[]]$ButtonText,
     [string]$WindowTitleRegex = '',
     [string]$ProcessNameRegex = '(?i)^claude$',
-    [string]$TargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)',
+    [string]$TargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$|\\windowsapps\\claude_[^\\]+\\app\\claude\.exe$|\\appdata\\roaming\\claude\\claude-code\\[^\\]+\\claude\.exe$)',
     [string[]]$BlockedPromptText,
     [string]$PolicyFile = '',
     [ValidateSet('Always', 'Once')]
@@ -44,7 +44,7 @@ $ToolOwner = 'positivef'
 $ToolRepository = 'https://github.com/positivef/claude-auto-allow'
 $ToolProvenance = 'CAA-POSITIVEF-2026-07'
 $DefaultProcessNameRegex = '(?i)^claude$'
-$DefaultTargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$)'
+$DefaultTargetPathRegex = '(?i)(\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude\.exe$|\\anthropicclaude\\.*\\claude\.exe$|\\windowsapps\\claude_[^\\]+\\app\\claude\.exe$|\\appdata\\roaming\\claude\\claude-code\\[^\\]+\\claude\.exe$)'
 $CommandLinePreferProvided = $PSBoundParameters.ContainsKey('Prefer')
 $CommandLineDryRunProvided = $PSBoundParameters.ContainsKey('DryRun')
 $CommandLineDiagnosticProvided = $PSBoundParameters.ContainsKey('Diagnostic')
@@ -791,6 +791,7 @@ if (-not $PSBoundParameters.ContainsKey('ButtonText') -or $ButtonText.Count -eq 
     $allowOnceKo = New-TextFromCodePoints @(0xD55C, 0x20, 0xBC88, 0xB9CC, 0x20, 0xD5C8, 0xC6A9)
     $allowOnceKoNoFirstSpace = New-TextFromCodePoints @(0xD55C, 0xBC88, 0xB9CC, 0x20, 0xD5C8, 0xC6A9)
     $allowOnceKoNoSpace = New-TextFromCodePoints @(0xD55C, 0xBC88, 0xB9CC, 0xD5C8, 0xC6A9)
+    $allowKo = New-TextFromCodePoints @(0xD5C8, 0xC6A9)
 
     $ButtonText = @(
         'Always allow',
@@ -801,7 +802,9 @@ if (-not $PSBoundParameters.ContainsKey('ButtonText') -or $ButtonText.Count -eq 
         'Allow Once',
         $allowOnceKo,
         $allowOnceKoNoFirstSpace,
-        $allowOnceKoNoSpace
+        $allowOnceKoNoSpace,
+        'Allow',
+        $allowKo
     )
 }
 

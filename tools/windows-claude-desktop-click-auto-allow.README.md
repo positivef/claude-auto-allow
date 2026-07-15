@@ -4,7 +4,8 @@ Windows desktop-click helper for visible Claude Code / Claude permission
 prompts.
 
 This is not a CLI wrapper. It watches trusted Claude windows and clicks known
-approval buttons such as `Always allow` or `Allow once` after safety checks.
+approval buttons such as `Always allow`, `Allow once`, or `Allow` after safety
+checks.
 
 ## Files
 
@@ -39,7 +40,9 @@ This tool cannot make automated approval risk-free, and no tool can be made
 "unhackable." The current build reduces common attack and mis-click risks with:
 
 - strict default target process name: `claude`
-- strict default executable path check for Claude installations
+- strict default executable path check for Claude installations, including npm
+  Claude Code, Claude Desktop / Windows Store, and Claude Desktop-bundled
+  Claude Code paths
 - known approval button labels only
 - custom target regex blocked unless `-AllowCustomTarget` is provided
 - custom button labels blocked unless `-AllowCustomButtonText` is provided
@@ -53,9 +56,10 @@ This tool cannot make automated approval risk-free, and no tool can be made
 The default desktop-click live policy is `PolicyAsk`: routine approval prompts
 are clicked, but prompts containing sensitive terms require a Windows
 confirmation dialog. The four desktop modes are mutually exclusive and are shown
-as radio buttons in the GUI. Use `PolicyBlock` to block those prompts without
-asking, `AlwaysAllow` to click known approval buttons even when sensitive terms
-are detected, or `Disabled` to stop all automatic clicks.
+as radio buttons in the GUI, not checkboxes. Selecting more than one would create
+conflicting behavior. Use `PolicyBlock` to block those prompts without asking,
+`AlwaysAllow` to click known approval buttons even when sensitive terms are
+detected, or `Disabled` to stop all automatic clicks.
 
 The live policy is read from `auto-allow-policy.json` on each scan loop. Change
 it while the watcher is running:

@@ -13,8 +13,9 @@ The desktop-click tools automate approval clicks. That class of tool carries
 inherent risk, so the project uses defensive constraints rather than broad
 automation:
 
-- target process name and executable path checks for Claude, VS Code, Cursor,
-  and VSCodium
+- target process name and executable path checks for Claude, including npm
+  Claude Code, Claude Desktop / Windows Store, and Claude Desktop-bundled Claude
+  Code paths, plus VS Code, Cursor, and VSCodium for Copilot
 - explicit opt-in for custom target regex
 - explicit opt-in for custom button text
 - live sensitive prompt policy with `PolicyAsk`, `PolicyBlock`, `AlwaysAllow`,

@@ -62,6 +62,10 @@ buttons:
   label checks.
 - `Disabled`: do not click anything.
 
+These four modes are intentionally not checkboxes because selecting more than
+one would create conflicting behavior. Independent options such as `Dry run`,
+`Diagnostic`, and `CLI auto mode` are checkboxes.
+
 Windows desktop-click tools read this policy while they are running. Changing it
 through the GUI or policy control command is applied on the next scan loop
 without restarting the watcher.
@@ -173,7 +177,9 @@ made unhackable. The current build reduces common abuse and hijacking risks by:
 
 - using Claude Code's built-in `--permission-mode auto` for CLI wrappers when
   CLI policy is `Auto`
-- targeting Claude by process name and executable path for Windows desktop-click mode
+- targeting Claude by process name and executable path for Windows desktop-click mode,
+  including npm Claude Code, Claude Desktop / Windows Store, and Claude
+  Desktop-bundled Claude Code paths
 - targeting VS Code / Cursor by process name and executable path for Copilot desktop-click mode
 - rejecting custom target regex unless `-AllowCustomTarget` is explicit
 - rejecting custom approval labels unless `-AllowCustomButtonText` is explicit
