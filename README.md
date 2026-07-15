@@ -236,6 +236,9 @@ Windows Claude desktop-click GUI:
 tools\windows-claude-desktop-click-auto-allow-gui.exe
 ```
 
+Button and control usage is documented in
+`tools/windows-claude-desktop-click-auto-allow.README.md`.
+
 Windows Claude desktop-click console:
 
 ```bat
