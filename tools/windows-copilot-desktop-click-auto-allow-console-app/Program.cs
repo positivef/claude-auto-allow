@@ -26,6 +26,14 @@ internal static class Program
             Console.WriteLine("Windows Copilot Desktop Click Auto Allow - positivef - " + Provenance);
 
             string scriptPath = ResolveSafeSiblingFile("windows-copilot-desktop-click-auto-allow.ps1");
+            if (args.Any(arg => string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine("Self-test OK");
+                Console.WriteLine("Script: " + scriptPath);
+                Console.WriteLine("PowerShell: " + ResolvePowerShellExecutable());
+                Console.WriteLine("Cmd: " + ResolveCmdExecutable());
+                return 0;
+            }
 
             var powershellArgs = new List<string>
             {
@@ -40,8 +48,8 @@ internal static class Program
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = JoinWindowsCommandLine(powershellArgs),
+                FileName = ResolveCmdExecutable(),
+                Arguments = BuildCmdPowerShellArguments(powershellArgs),
                 WorkingDirectory = Environment.CurrentDirectory,
                 UseShellExecute = false
             };
@@ -60,9 +68,63 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("ERROR: " + ex.Message);
             return 1;
         }
+    }
+
+    private static string ResolvePowerShellExecutable()
+    {
+        string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (!string.IsNullOrWhiteSpace(windowsDirectory))
+        {
+            string candidate = Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return "powershell.exe";
+    }
+
+    private static string ResolveCmdExecutable()
+    {
+        string systemDirectory = Environment.SystemDirectory;
+        if (!string.IsNullOrWhiteSpace(systemDirectory))
+        {
+            string candidate = Path.Combine(systemDirectory, "cmd.exe");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return "cmd.exe";
+    }
+
+    private static string BuildCmdPowerShellArguments(IEnumerable<string> powershellArgs)
+    {
+        var command = new StringBuilder();
+        command.Append(QuoteForCmd(ResolvePowerShellExecutable()));
+        foreach (string arg in powershellArgs)
+        {
+            command.Append(' ');
+            command.Append(QuoteForCmd(arg));
+        }
+
+        return "/d /s /c \"" + command + "\"";
+    }
+
+    private static string QuoteForCmd(string value)
+    {
+        return "\"" + value
+            .Replace("^", "^^")
+            .Replace("&", "^&")
+            .Replace("|", "^|")
+            .Replace("<", "^<")
+            .Replace(">", "^>")
+            .Replace("\"", "^\"") + "\"";
     }
 
     private static string JoinWindowsCommandLine(IEnumerable<string> args)

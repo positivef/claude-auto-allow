@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -19,11 +20,30 @@ using System.Windows.Forms;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        if (HasSelfTest(args))
+        {
+            Environment.ExitCode = AutoAllowForm.RunSelfTest();
+            return;
+        }
+
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new AutoAllowForm());
+    }
+
+    private static bool HasSelfTest(string[] args)
+    {
+        foreach (string arg in args)
+        {
+            if (string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -46,6 +66,20 @@ internal sealed class AutoAllowForm : Form
     private readonly TextBox logBox;
     private Process worker;
     private bool loadingPolicy;
+
+    internal static int RunSelfTest()
+    {
+        string scriptPath = ResolveSafeSiblingFile("windows-claude-desktop-click-auto-allow.ps1");
+        string policyPath = GetPolicyFilePath();
+
+        Console.WriteLine("Windows Claude Desktop Click Auto Allow GUI self-test OK");
+        Console.WriteLine("Script : " + scriptPath);
+        Console.WriteLine("Policy : " + policyPath);
+        Console.WriteLine("PowerShell : " + ResolvePowerShellExecutable());
+        Console.WriteLine("Cmd : " + ResolveCmdExecutable());
+        Console.WriteLine("Marker : " + Provenance);
+        return 0;
+    }
 
     public AutoAllowForm()
     {
@@ -182,16 +216,22 @@ internal sealed class AutoAllowForm : Form
             return;
         }
 
-        var args = new StringBuilder();
-        args.Append("-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File ");
-        args.Append(Quote(scriptPath));
-        args.Append(" -PolicyFile ");
-        args.Append(Quote(GetPolicyFilePath()));
+        var powershellArgs = new[]
+        {
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "RemoteSigned",
+            "-File",
+            scriptPath,
+            "-PolicyFile",
+            GetPolicyFilePath()
+        };
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = "powershell.exe",
-            Arguments = args.ToString(),
+            FileName = ResolveCmdExecutable(),
+            Arguments = BuildCmdPowerShellArguments(powershellArgs),
             WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -393,6 +433,60 @@ internal sealed class AutoAllowForm : Form
     private static string GetPolicyFilePath()
     {
         return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "auto-allow-policy.json"));
+    }
+
+    private static string ResolvePowerShellExecutable()
+    {
+        string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        if (!string.IsNullOrWhiteSpace(windowsDirectory))
+        {
+            string candidate = Path.Combine(windowsDirectory, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return "powershell.exe";
+    }
+
+    private static string ResolveCmdExecutable()
+    {
+        string systemDirectory = Environment.SystemDirectory;
+        if (!string.IsNullOrWhiteSpace(systemDirectory))
+        {
+            string candidate = Path.Combine(systemDirectory, "cmd.exe");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return "cmd.exe";
+    }
+
+    private static string BuildCmdPowerShellArguments(IEnumerable<string> powershellArgs)
+    {
+        var command = new StringBuilder();
+        command.Append(QuoteForCmd(ResolvePowerShellExecutable()));
+        foreach (string arg in powershellArgs)
+        {
+            command.Append(' ');
+            command.Append(QuoteForCmd(arg));
+        }
+
+        return "/d /s /c \"" + command + "\"";
+    }
+
+    private static string QuoteForCmd(string value)
+    {
+        return "\"" + value
+            .Replace("^", "^^")
+            .Replace("&", "^&")
+            .Replace("|", "^|")
+            .Replace("<", "^<")
+            .Replace(">", "^>")
+            .Replace("\"", "^\"") + "\"";
     }
 
     private string GetSelectedMode()

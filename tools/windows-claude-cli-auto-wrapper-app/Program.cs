@@ -24,6 +24,11 @@ internal static class Program
     {
         try
         {
+            if (HasSelfTest(args))
+            {
+                return RunSelfTest();
+            }
+
             var claudeArgs = new List<string>(args);
             bool hasPermissionOverride = HasPermissionOverride(claudeArgs);
             CliPolicy policy = ReadCliPolicy();
@@ -89,6 +94,24 @@ internal static class Program
         }
 
         return false;
+    }
+
+    private static bool HasSelfTest(IEnumerable<string> args)
+    {
+        return args.Any(arg => string.Equals(arg, "--self-test", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int RunSelfTest()
+    {
+        CliPolicy policy = ReadCliPolicy();
+        string claudePath = ResolveClaudeExecutable();
+
+        Console.WriteLine("Windows Claude CLI Auto Wrapper self-test OK");
+        Console.WriteLine("Claude : " + claudePath);
+        Console.WriteLine("Policy : " + (string.IsNullOrEmpty(policy.PolicyPath) ? "not found; default CLI Auto" : policy.PolicyPath));
+        Console.WriteLine("Mode   : " + policy.CliPermissionMode);
+        Console.WriteLine("Marker : " + Provenance);
+        return 0;
     }
 
     private static CliPolicy ReadCliPolicy()
