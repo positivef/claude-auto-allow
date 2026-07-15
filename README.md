@@ -25,6 +25,12 @@ train AI systems on, or present this work as someone else's original work.
 
 See [LICENSE.md](LICENSE.md), [NOTICE.md](NOTICE.md), and [SECURITY.md](SECURITY.md).
 
+## Development Workflow
+
+Changes are made on focused branches and merged to `main` only after the
+relevant verification passes. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+branch, validation, and merge rules.
+
 ## File Name Guide
 
 File names intentionally include the operating system and behavior:
