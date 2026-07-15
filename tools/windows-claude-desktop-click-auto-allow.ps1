@@ -498,7 +498,7 @@ function Get-PointSampledButtonElements {
 
     $targetProcessId = $Window.Current.ProcessId
     $buttonsByKey = @{}
-    $yFractions = @(0.78, 0.80)
+    $yFractions = @(0.78, 0.80, 0.86, 0.88, 0.90)
     $xFractions = @(0.52, 0.58, 0.62, 0.68, 0.72, 0.76, 0.48)
 
     foreach ($yFraction in $yFractions) {
@@ -544,7 +544,7 @@ function Get-RegionButtonElements {
     $regionLeft = $windowRect.Left + ($windowRect.Width * 0.22)
     $regionRight = $windowRect.Left + ($windowRect.Width * 0.82)
     $regionTop = $windowRect.Top + ($windowRect.Height * 0.54)
-    $regionBottom = $windowRect.Top + ($windowRect.Height * 0.84)
+    $regionBottom = $windowRect.Top + ($windowRect.Height * 0.94)
     $region = New-Object System.Windows.Rect(
         $regionLeft,
         $regionTop,
